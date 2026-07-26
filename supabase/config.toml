@@ -1,0 +1,66 @@
+# process-gpt-sample-app-wms — local Supabase project.
+# Ports are shifted +1000 from services/frontend's local project (54321...)
+# so both can run side by side on one machine.
+project_id = "process-gpt-sample-app-wms"
+
+[api]
+enabled = true
+port = 55321
+schemas = ["public", "wms", "storage", "graphql_public"]
+extra_search_path = ["public", "wms", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55322
+shadow_port = 55320
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 55329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 55323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 55324
+smtp_port = 55325
+pop3_port = 55326
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5273"
+additional_redirect_urls = ["http://localhost:5273"]
+jwt_expiry = 10800
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 30
+enable_signup = true
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+[analytics]
+enabled = false
+port = 55327
+vector_port = 55328
+backend = "postgres"

@@ -1,0 +1,4 @@
+fastmcp
+supabase
+uvicorn
+starlette

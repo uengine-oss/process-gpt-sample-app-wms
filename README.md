@@ -1,0 +1,55 @@
+# process-gpt-sample-app-wms
+
+Sample WMS / light procurement app for ProcessGPT — replaces the Odoo MCP
+integration for the shortage → RFQ → HITL approval → PO → receiving →
+quality → scrap/putaway flow. See `docs/` for the openspec-derived contracts
+this implements (`openspec/changes/supabase-wms-erp-replacement` in the main
+`process-gpt` repo has the full proposal/design/spec set this is scoped
+from).
+
+This repo is meant to be vendored into the main `process-gpt` repo as a git
+submodule at `services/sample-app-wms`, matching how `services/frontend`,
+`services/deepagents`, etc. are vendored (see `.gitmodules` there).
+
+## Scope
+
+This is a **demo-first vertical slice**, not the full 55-task enterprise
+backlog in `tasks.md`. It proves the BPMN flow end-to-end with a small,
+real (not mocked) stack: Supabase Postgres + Auth + RLS, a FastMCP server,
+and a Vue 3 frontend. See `docs/01-baseline-scope.md` for what's in vs.
+out, and the bottom of the repo-root `tasks.md`'s copy for what's deferred.
+
+## Layout
+
+- `supabase/` — the `wms` Postgres schema, RLS policies, and the 9 command
+  RPCs, plus demo seed data (2 tenants, 1 warehouse each, one user per role).
+- `mcp/` — `wms-mcp`, a FastMCP server (same pattern as `services/office-mcp`)
+  exposing the RPCs as MCP tools for ProcessGPT to call.
+- `frontend/` — `wms-frontend`, a Vue 3 + Vite + TypeScript app with one
+  screen per stage of the flow (Overview, Replenishment, Purchase Orders,
+  Receiving, Quality).
+- `docs/` — the task-1 baseline/contracts artifacts this slice was built from.
+
+## Running locally
+
+```bash
+# 1. Start Supabase (schema + RLS + RPCs + seed data)
+cd supabase && supabase start
+# copy the printed anon key into frontend/.env and mcp/.env
+
+# 2. Frontend
+cd frontend && npm install && cp .env.example .env  # fill VITE_SUPABASE_ANON_KEY
+npm run dev   # http://localhost:5273
+
+# 3. wms-mcp
+cd mcp && pip install -r requirements.txt && cp .env.example .env  # fill SUPABASE_ANON_KEY
+python main.py   # http://localhost:8199
+
+# 4. E2E
+cd frontend && npx playwright install chromium && npm run test:e2e
+```
+
+Demo logins (password `Demo1234!` for all): `admin-a@demo.local`,
+`buyer-a@demo.local`, `approver-a@demo.local`, `inbound-a@demo.local`,
+`quality-a@demo.local`, `admin-b@demo.local` (tenant B, for the
+cross-tenant RLS-isolation demo).
