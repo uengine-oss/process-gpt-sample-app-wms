@@ -1,10 +1,9 @@
 # 10.3–10.5 연동: wms-mcp를 ProcessGPT 테넌트에 등록
 
-> 이 슬라이스에서 실제로 검증한 것: `mcp/` 서버가 fastmcp `Client`로 9개 도구를
-> streamable-HTTP(`/mcp`)로 정상 호출됨(로컬 스모크 테스트, 아래 참고). 이 문서는
-> 그 서버를 실제 ProcessGPT 인스턴스(`services/completion`)의 테넌트 MCP 설정에
-> 등록하는 절차다 — main `process-gpt` 리포의 completion/polling-service까지
-> 함께 띄운 통합 테스트는 이번 슬라이스 범위에 포함하지 않았다(별도 세션 필요).
+> `mcp/` 서버의 9개 도구와 ProcessGPT 폴링 컨테이너에서의 도구 검색을 실제로
+> 검증했다. `scripts/install_processgpt_integration.py`는 테넌트 MCP 설정, 제한된
+> WMS 실행 에이전트, `wms_replenishment_process` BPMN과 HITL 폼을 반복 실행 가능한
+> 방식으로 설치한다.
 
 ## 실사 결과 요약 (docs/02-contracts.md §1.3)
 
@@ -56,19 +55,44 @@ wms.putaway
 `wms_apply_disposition`). 즉 tool 허용 목록에서 빼더라도, 빠졌을 때의 안전망이
 DB 레벨에도 있다.
 
-## 10.4/10.5: completion 연동 지점 (설계만, 미구현)
+## 10.4/10.5: completion 연동
 
-- **10.4** (`completion_automated-task-execution`): serviceTask가 위 도구를
-  호출한 뒤 반환된 `{result, document_id, status, next_actions}`를 workitem
-  `output`에 그대로 기록하면 된다 — 이미 `MCPProcessor.execute_mcp_tools`가
-  임의의 MCP 도구 결과를 `output`에 저장하는 구조이므로 wms-mcp 쪽 추가 작업은
-  필요 없다. `next_actions`는 다음 활동의 프롬프트 힌트로 활용 가능.
+- **10.4** (`completion_automated-task-execution`): serviceTask의 `tool`을
+  `mcp:<tool_name>`으로 지정하면 completion이 해당 도구만 에이전트에 노출한다.
+  WMS의 `{result: "ok", document_id, status, version, next_actions}` envelope도
+  기존 `{status: "success"}` 형식과 함께 workitem `output`에 보존한다.
 - **10.5** (`completion_process-workitem-submission`): 구매 승인 human task는
   `wms_submit_purchase_approval`을 **frontend에서 로그인한 실제 사용자**가
   호출해야 한다(PROCESS_AGENT 역할은 이 RPC를 호출할 권한이 없음, 의도적).
   workitem 제출 시 `po_id`와 `expected_version`을 폼 hidden field로 보존해
-  버전 충돌을 감지해야 한다 — 아직 이 필드들을 completion workitem 스키마에
-  매핑하는 코드는 작성하지 않았다(TODO).
+  버전 충돌을 감지한다. 데모 프로세스의 승인 폼과 품질 폼에 이 필드가 포함된다.
+
+## 설치
+
+WMS MCP를 호스트의 `8199` 포트에 실행하고 ProcessGPT 로컬 스택이 준비된 상태에서:
+
+```bash
+cd services/sample-app-wms
+python3 scripts/install_processgpt_integration.py
+```
+
+설치되는 실행 흐름:
+
+```text
+재고 부족 감지
+→ get_availability
+→ create_rfq
+→ request_approval
+→ 발주 승인(HITL)
+→ confirm_po
+→ register_arrival
+→ receive
+→ 품질검사(HITL)
+→ putaway 또는 폐기 확인
+```
+
+설치 스크립트는 기존 `tenants.mcp` 항목을 보존한 채 `wms`만 병합하며, 기존
+프로세스 인스턴스나 WMS 거래 데이터를 삭제하지 않는다.
 
 ## 로컬 검증 기록
 

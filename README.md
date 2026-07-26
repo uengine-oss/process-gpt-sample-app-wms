@@ -45,7 +45,12 @@ npm run dev   # http://localhost:5273
 cd mcp && pip install -r requirements.txt && cp .env.example .env  # fill SUPABASE_ANON_KEY
 python main.py   # http://localhost:8199
 
-# 4. E2E
+# 4. ProcessGPT integration (ProcessGPT local stack must already be running)
+python scripts/install_processgpt_integration.py
+# Process definition: wms_replenishment_process
+# ProcessGPT polling container reaches MCP at host.docker.internal:8199/mcp
+
+# 5. WMS E2E
 cd frontend && npx playwright install chromium && npm run test:e2e
 ```
 
