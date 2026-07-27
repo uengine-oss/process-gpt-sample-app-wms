@@ -1,0 +1,690 @@
+
+==============================================================
+A. Schema shape
+==============================================================
+-- A1 columns, generated duration, CHECK constraints
+    column_name     |        data_type         | is_generated 
+--------------------+--------------------------+--------------
+ id                 | uuid                     | NEVER
+ tenant_id          | uuid                     | NEVER
+ warehouse_id       | uuid                     | NEVER
+ actor_id           | uuid                     | NEVER
+ actor_role         | text                     | NEVER
+ activity_type      | text                     | NEVER
+ activity_label     | text                     | NEVER
+ linked_entity_type | text                     | NEVER
+ linked_entity_id   | uuid                     | NEVER
+ unit_count         | numeric                  | NEVER
+ status             | text                     | NEVER
+ started_at         | timestamp with time zone | NEVER
+ completed_at       | timestamp with time zone | NEVER
+ duration_seconds   | bigint                   | ALWAYS
+ reason             | text                     | NEVER
+ version            | integer                  | NEVER
+ correlation_id     | text                     | NEVER
+ created_by         | uuid                     | NEVER
+ updated_by         | uuid                     | NEVER
+ created_at         | timestamp with time zone | NEVER
+ updated_at         | timestamp with time zone | NEVER
+(21 rows)
+
+
+-- A2 CHECK constraints from design.md
+                conname                
+---------------------------------------
+ labor_activities_activity_type_check
+ labor_activities_in_progress_open_ck
+ labor_activities_linked_pair_ck
+ labor_activities_other_needs_label_ck
+ labor_activities_status_check
+ labor_activities_terminal_closed_ck
+ labor_activities_unit_count_ck
+ labor_activities_window_ck
+(8 rows)
+
+
+-- A3 the six RPCs exist and are SECURITY DEFINER
+           proname           | prosecdef | provolatile 
+-----------------------------+-----------+-------------
+ _wms_labor_actor_ok         | t         | s
+ _wms_load_labor_activity    | t         | s
+ wms_cancel_labor_activity   | t         | v
+ wms_complete_labor_activity | t         | v
+ wms_forecast_labor_demand   | t         | s
+ wms_get_labor_leaderboard   | t         | s
+ wms_get_labor_productivity  | t         | s
+ wms_start_labor_activity    | t         | v
+(8 rows)
+
+-- expected: 6 wms_* RPCs + 2 internal _wms_* helpers, all prosecdef=t
+
+==============================================================
+B. Start (spec: 인력 활동 시작 기록 / 본인 명의 기록 원칙)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- B1 happy path: IN_PROGRESS, version 1, role snapshot taken
+   status    | version |    actor_role    |                     next_actions                     
+-------------+---------+------------------+------------------------------------------------------
+ IN_PROGRESS | 1       | INBOUND_OPERATOR | ["complete_labor_activity", "cancel_labor_activity"]
+(1 row)
+
+-- expected: IN_PROGRESS | 1 | INBOUND_OPERATOR | [complete, cancel]
+
+-- B2 OTHER without activity_label -> INVALID; with one -> ok
+ other_without_label | unknown_type | other_with_label 
+---------------------+--------------+------------------
+ INVALID             | INVALID      | IN_PROGRESS
+(1 row)
+
+-- expected: INVALID | INVALID | IN_PROGRESS
+
+-- B3 D2 actor-spoofing guard: A cannot record under B's name
+                                            spoof_attempt                                             
+------------------------------------------------------------------------------------------------------
+ FORBIDDEN: actor_id must be the calling user (only WMS_ADMIN may record on behalf of another worker)
+(1 row)
+
+ spoofed_rows_created 
+----------------------
+                    0
+(1 row)
+
+-- expected: FORBIDDEN: actor_id must be the calling user ... | 0
+
+-- B4 WMS_ADMIN is the one proxy exception (offline worker, correction)
+ act 
+-----
+ 
+(1 row)
+
+   proxied_role    | attributed_to_b 
+-------------------+-----------------
+ QUALITY_INSPECTOR | t
+(1 row)
+
+-- expected: QUALITY_INSPECTOR | t   (role snapshot follows the WORKER, not the admin)
+
+-- B5 no warehouse scope -> FORBIDDEN (tenant B admin against warehouse A)
+ act 
+-----
+ 
+(1 row)
+
+                                no_scope                                
+------------------------------------------------------------------------
+ FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+
+-- B6 a role outside the write set -> FORBIDDEN (PROCUREMENT_BUYER)
+ act 
+-----
+ 
+(1 row)
+
+                   wrong_role                   
+------------------------------------------------
+ FORBIDDEN: role cannot record labor activities
+(1 row)
+
+
+-- B7 idempotency: the same key returns the same activity, once
+--    (the follow-up count is a SEPARATE statement on purpose — a
+--     sub-SELECT beside the RPC call would read the pre-statement
+--     snapshot and report 0. Harness artifact, not contract behaviour.)
+ act 
+-----
+ 
+(1 row)
+
+              first_call              
+--------------------------------------
+ f6775b8e-3be8-4357-af22-181076839f71
+(1 row)
+
+            replayed_call             
+--------------------------------------
+ f6775b8e-3be8-4357-af22-181076839f71
+(1 row)
+
+ rows_created 
+--------------
+            1
+(1 row)
+
+-- expected: the same uuid twice | 1
+
+==============================================================
+C. Complete (spec: 인력 활동 완료 기록)
+==============================================================
+-- C1 the spec's worked example: started 09:00:00, completed 09:12:30,
+--    unit_count 48 -> duration_seconds 750
+ backdate 
+----------
+ 
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+  status   | version | duration_seconds | unit_count 
+-----------+---------+------------------+------------
+ COMPLETED | 2       | 750              | 48
+(1 row)
+
+-- expected: COMPLETED | 2 | 750 | 48
+
+-- C2 completing twice -> INVALID, and a stale version -> CONFLICT
+ complete_twice | stale_version 
+----------------+---------------
+ INVALID        | CONFLICT
+(1 row)
+
+   status    | version 
+-------------+---------
+ IN_PROGRESS |       1
+(1 row)
+
+-- expected: INVALID | CONFLICT, and the target row untouched at IN_PROGRESS/1
+
+-- C3 D2 again on the closing side: A cannot close B's activity
+                                   close_someone_elses                                    
+------------------------------------------------------------------------------------------
+ FORBIDDEN: labor activity c9516514-ecd7-4689-8714-5e2c3c960c59 belongs to another worker
+(1 row)
+
+
+-- C4 the admin closes the proxied activity it opened for worker B
+ backdate 
+----------
+ 
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ duration_seconds | unit_count |  status   
+------------------+------------+-----------
+ 1800             | 60         | COMPLETED
+(1 row)
+
+-- expected: 1800 | 60 | COMPLETED
+
+-- C5 completing with no unit_count is allowed, and warns
+ act 
+-----
+ 
+(1 row)
+
+ backdate 
+----------
+ 
+(1 row)
+
+ unit_count |          warnings          
+------------+----------------------------
+            | ["NO_UNIT_COUNT_RECORDED"]
+(1 row)
+
+-- expected: (null) | ["NO_UNIT_COUNT_RECORDED"]
+
+==============================================================
+D. Cancel (spec: 인력 활동 취소 — excluded from every aggregate)
+==============================================================
+-- D1 IN_PROGRESS -> CANCELLED
+ backdate 
+----------
+ 
+(1 row)
+
+  status   |         reason         |            warnings            
+-----------+------------------------+--------------------------------
+ CANCELLED | 다른 작업으로 재배정됨 | ["EXCLUDED_FROM_PRODUCTIVITY"]
+(1 row)
+
+-- expected: CANCELLED | 다른 작업으로 재배정됨 | ["EXCLUDED_FROM_PRODUCTIVITY"]
+
+-- D2 a CANCELLED activity cannot be completed or cancelled again
+ complete_cancelled | cancel_twice 
+--------------------+--------------
+ INVALID            | INVALID
+(1 row)
+
+-- expected: INVALID | INVALID
+
+-- D3 the cancelled hour (3600s) is nowhere in the aggregate
+ completed_count | total_duration_seconds | total_unit_count 
+-----------------+------------------------+------------------
+ 2               | 1350                   | 48
+(1 row)
+
+-- expected: 2 | 1350 (=750+600) | 48   — the 3600s cancellation is absent
+
+==============================================================
+E. Productivity aggregation (spec: 작업자별 생산성 집계 조회)
+==============================================================
+-- E1 the manager sees BOTH workers (scope=WAREHOUSE)
+ act 
+-----
+ 
+(1 row)
+
+   scope   | distinct_actors | sees_worker_b 
+-----------+-----------------+---------------
+ WAREHOUSE | 2               |             1
+(1 row)
+
+-- expected: WAREHOUSE | 2 | 1
+
+-- E2 PRIVACY: worker A gets scope=SELF and worker B is invisible,
+--    even though A explicitly asked for B's actor_id
+ act 
+-----
+ 
+(1 row)
+
+ scope | distinct_actors | foreign_rows |        notes        
+-------+-----------------+--------------+---------------------
+ SELF  | 1               |            0 | ["SELF_SCOPE_ONLY"]
+(1 row)
+
+-- expected: SELF | 1 | 0 | ["SELF_SCOPE_ONLY"]   — the p_actor_id argument was overwritten, not refused
+
+-- E3 grouping is by worker x role x date x activity_type, and each row
+--    carries count / avg / total duration / total units
+ act 
+-----
+ 
+(1 row)
+
+                            rows                             
+-------------------------------------------------------------
+ [                                                          +
+     {                                                      +
+         "actor_id": "2d591041-979c-4efc-bf94-716296498fcc",+
+         "actor_role": "INBOUND_OPERATOR",                  +
+         "actor_email": "inbound-a@demo.local",             +
+         "activity_date": "2026-07-27",                     +
+         "activity_type": "PUTAWAY",                        +
+         "completed_count": 1,                              +
+         "total_unit_count": 0,                             +
+         "avg_duration_seconds": 600.0,                     +
+         "total_duration_seconds": 600                      +
+     },                                                     +
+     {                                                      +
+         "actor_id": "2d591041-979c-4efc-bf94-716296498fcc",+
+         "actor_role": "INBOUND_OPERATOR",                  +
+         "actor_email": "inbound-a@demo.local",             +
+         "activity_date": "2026-07-27",                     +
+         "activity_type": "RECEIVING",                      +
+         "completed_count": 1,                              +
+         "total_unit_count": 48,                            +
+         "avg_duration_seconds": 750.0,                     +
+         "total_duration_seconds": 750                      +
+     },                                                     +
+     {                                                      +
+         "actor_id": "a8f9c08a-8b9f-4f7a-b56b-559b3e47b003",+
+         "actor_role": "QUALITY_INSPECTOR",                 +
+         "actor_email": "quality-a@demo.local",             +
+         "activity_date": "2026-07-27",                     +
+         "activity_type": "QUALITY_INSPECTION",             +
+         "completed_count": 1,                              +
+         "total_unit_count": 60,                            +
+         "avg_duration_seconds": 1800.0,                    +
+         "total_duration_seconds": 1800                     +
+     }                                                      +
+ ]
+(1 row)
+
+
+-- E4 a role filter narrows the aggregate
+ inbound_operator_only | actors 
+-----------------------+--------
+ 2                     | 1
+(1 row)
+
+-- expected: 2 | 1
+
+-- E5 an out-of-scope warehouse -> FORBIDDEN; an inverted period -> INVALID
+ act 
+-----
+ 
+(1 row)
+
+ cross_tenant 
+--------------
+ FORBIDDEN
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ inverted_period 
+-----------------
+ INVALID
+(1 row)
+
+-- expected: FORBIDDEN | INVALID
+
+==============================================================
+F. Leaderboard (spec: 생산성 리더보드 조회)
+==============================================================
+-- F1 the manager gets a ranked board over all workers
+ act 
+-----
+ 
+(1 row)
+
+ rank |        actor         |       role        | completed | units | avg_seconds 
+------+----------------------+-------------------+-----------+-------+-------------
+ 1    | inbound-a@demo.local | INBOUND_OPERATOR  | 2         | 48    | 675.0
+ 2    | quality-a@demo.local | QUALITY_INSPECTOR | 1         | 60    | 1800.0
+(2 rows)
+
+-- expected: rank 1 = inbound-a (2 completions), rank 2 = quality-a (1)
+
+-- F2 the metric really changes the order
+     top_by_units     |      metric      
+----------------------+------------------
+ quality-a@demo.local | total_unit_count
+(1 row)
+
+     fastest_avg      | avg_seconds 
+----------------------+-------------
+ inbound-a@demo.local | 675.0
+(1 row)
+
+-- expected: quality-a leads by units (60 > 48); inbound-a leads by speed (675s < 1800s)
+
+-- F3 PRIVACY: a non-manager gets ONE row (their own), no error, no rank
+ act 
+-----
+ 
+(1 row)
+
+ scope | row_count |       only_row       | rank |                      notes                      
+-------+-----------+----------------------+------+-------------------------------------------------
+ SELF  | 1         | inbound-a@demo.local | null | ["SELF_SCOPE_ONLY", "SELF_SCOPE_RANK_WITHHELD"]
+(1 row)
+
+-- expected: SELF | 1 | inbound-a@demo.local | null | [SELF_SCOPE_ONLY, SELF_SCOPE_RANK_WITHHELD]
+--    (V3: a fake rank=1 would be a lie, a true global rank would leak how
+--     many colleagues are ahead — so it is withheld and says so)
+
+-- F4 an unknown metric -> INVALID
+ bogus_metric 
+--------------
+ INVALID
+(1 row)
+
+
+==============================================================
+G. Demand forecast (spec: 인력 수요 추정 — 단순 비율 계산)
+==============================================================
+-- G0 an ISOLATED sample so the arithmetic can be checked against a known
+--    number. actor_role is free text (design.md D4 reuses membership
+--    roles rather than constraining them), so a synthetic role gives a
+--    trailing window that neither the seeds nor the fixtures above touch:
+--    3 activities, 90 units, 16200s = 20 units/hour — exactly spec.md's
+--    worked example.
+  actor_role  | sample_count | units | seconds 
+--------------+--------------+-------+---------
+ LABOR-V-ROLE |            3 |    90 |   16200
+(1 row)
+
+-- expected: LABOR-V-ROLE | 3 | 90 | 16200
+
+-- G1 spec.md's worked example: 20 units/hour x 8h = 160 per person per
+--    shift; 480 / 160 = 3
+ act 
+-----
+ 
+(1 row)
+
+ headcount | units_per_hour | per_person_per_shift | trailing_days | sample_count |    method    
+-----------+----------------+----------------------+---------------+--------------+--------------
+ 3         | 20.00          | 160.00               | 7             | 3            | SIMPLE_RATIO
+(1 row)
+
+-- expected: 3 | 20.00 | 160.00 | 7 | 3 | SIMPLE_RATIO
+
+-- G1b the response says out loud that this is arithmetic, not ML
+                                                   method_note                                                    
+------------------------------------------------------------------------------------------------------------------
+ 트레일링 평균 처리량 ÷ 예상 물량의 단순 비율 계산입니다. 계절성·추세·이상치를 보정하는 머신러닝 예측이 아닙니다.
+(1 row)
+
+
+-- G2 rounding is UP — a fractional person is a whole person
+ v161 | v160 | v480_half_shift 
+------+------+-----------------
+ 2    | 1    | 6
+(1 row)
+
+-- expected: 2 | 1 | 6   (halving the shift doubles the headcount — pure ratio)
+
+-- G2b the trailing window really is a window: 1 day back sees 0 samples
+--    of a role whose activities are all 1-3 days old -> INVALID
+ one_day_window 
+----------------
+ INVALID
+(1 row)
+
+
+-- G2c the same identity holds on the REAL seed data, whatever it contains:
+--     headcount == ceil(expected_volume / (units_per_hour * shift_hours))
+ headcount | recomputed | identity_holds 
+-----------+------------+----------------
+         1 |          1 | t
+(1 row)
+
+-- expected: identity_holds = t
+
+-- G3 no sample for the role -> INVALID, no number invented
+                                               no_sample                                               
+-------------------------------------------------------------------------------------------------------
+ INVALID: no completed PROCUREMENT_BUYER activities in the trailing 7 days — cannot estimate headcount
+(1 row)
+
+
+-- G4 D4: a plain worker cannot forecast -> FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+               worker_forecast                
+----------------------------------------------
+ FORBIDDEN: role cannot forecast labor demand
+(1 row)
+
+
+-- G5 argument validation
+ act 
+-----
+ 
+(1 row)
+
+ zero_volume | zero_days | zero_shift 
+-------------+-----------+------------
+ INVALID     | INVALID   | INVALID
+(1 row)
+
+-- expected: INVALID | INVALID | INVALID
+
+==============================================================
+H. RLS on the table itself (spec: 개인 생산성 데이터 접근 통제)
+--    Everything above went through SECURITY DEFINER RPCs, which bypass
+--    RLS. This section drops the session role to `authenticated` so the
+--    policy is the ONLY thing standing between the reader and the rows.
+==============================================================
+-- H1 worker A sees only their own rows — not colleague B's
+ act 
+-----
+ 
+(1 row)
+
+ sees_own | sees_colleague | distinct_actors_visible 
+----------+----------------+-------------------------
+ t        |              0 |                       1
+(1 row)
+
+-- expected: t | 0 | 1
+
+-- H2 the WAREHOUSE_MANAGER sees both
+ act 
+-----
+ 
+(1 row)
+
+ distinct_actors_visible 
+-------------------------
+                       2
+(1 row)
+
+-- expected: 2
+
+-- H3 cross-tenant: tenant B's admin sees zero tenant A rows
+ act 
+-----
+ 
+(1 row)
+
+ b_sees_any | b_sees_a 
+------------+----------
+          0 |        0
+(1 row)
+
+-- expected: 0 | 0
+
+-- H4 direct writes as `authenticated` are denied (no INSERT/UPDATE policy)
+ act 
+-----
+ 
+(1 row)
+
+                direct_insert                 
+----------------------------------------------
+ permission denied for table labor_activities
+(1 row)
+
+                direct_update                 
+----------------------------------------------
+ permission denied for table labor_activities
+(1 row)
+
+                direct_delete                 
+----------------------------------------------
+ permission denied for table labor_activities
+(1 row)
+
+-- expected: permission-denied errors (or 0 affected rows), never a write
+
+-- H5 no DML privilege leaked to authenticated/anon
+    grantee    | privilege_type 
+---------------+----------------
+ authenticated | SELECT
+(1 row)
+
+-- expected: SELECT for authenticated only
+
+==============================================================
+I. Audit trail (spec: 인력 활동 감사 추적)
+==============================================================
+           command           |  entity_type   | events | with_before | with_after 
+-----------------------------+----------------+--------+-------------+------------
+ wms_cancel_labor_activity   | labor_activity |      1 |           1 |          1
+ wms_complete_labor_activity | labor_activity |      3 |           3 |          3
+ wms_start_labor_activity    | labor_activity |      4 |           0 |          4
+(3 rows)
+
+-- expected: all three commands, entity_type=labor_activity, complete/cancel carry before+after
+
+-- I2 the completion event's before/after really is the transition
+       transition       | duration_after 
+------------------------+----------------
+ IN_PROGRESS->COMPLETED | 750
+(1 row)
+
+-- expected: IN_PROGRESS->COMPLETED | 750
+
+==============================================================
+J. Independence from the inbound flow (design.md D1)
+--    This contract is instrumentation that sits BESIDE the receiving
+--    RPCs, never inside them. An untouched receipt must still walk the
+--    whole chain with no labor activity anywhere in sight.
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+ po_confirmed 
+--------------
+ CONFIRMED_PO
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ arrived 
+---------
+ ARRIVED
+(1 row)
+
+  received  
+------------
+ QC_PENDING
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+    inspected    
+-----------------
+ PUTAWAY_PENDING
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+     put_away      
+-------------------
+ PUTAWAY_COMPLETED
+(1 row)
+
+-- expected: CONFIRMED_PO | ARRIVED | QC_PENDING | PUTAWAY_PENDING | PUTAWAY_COMPLETED
+
+-- J2 not one labor activity was created by that whole chain
+ labor_rows_linked_to_the_receipt 
+----------------------------------
+                                0
+(1 row)
+
+-- expected: 0
+
+==============================================================
+Cleanup
+==============================================================
+ leftover_fixtures 
+-------------------
+                 0
+(1 row)
+
+-- expected: 0

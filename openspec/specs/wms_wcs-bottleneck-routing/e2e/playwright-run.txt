@@ -1,0 +1,14 @@
+
+Running 9 tests using 1 worker
+
+  ✓  1 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:135:1 › register -> dispatch -> gateway completes -> fault -> operator resolves (1.6s)
+  ✓  2 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:229:1 › WCS_OPERATOR cannot register equipment, and the audit trail is complete (347ms)
+  ✓  3 [chromium] › playwright/e2e/wcs-routing-flow.spec.ts:229:1 › flaky machine is avoided, force-excluded machine is never used, fallback still works (2.1s)
+  ✓  4 [chromium] › playwright/e2e/wcs-routing-flow.spec.ts:363:1 › roles are split between threshold tuning and exclusion, and the audit trail is complete (862ms)
+  ✓  5 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:145:1 › profile -> DIVERT -> MISROUTE (no fault) -> JAM (auto fault) -> operator resolves (1.9s)
+  ✓  6 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:269:1 › WMS_ADMIN can tune a profile but cannot dispatch, and the audit trail is complete (786ms)
+  ✓  7 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:198:1 › open wave -> queue work orders -> release -> gateway completes -> work order COMPLETED (1.3s)
+  ✓  8 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:291:1 › WES board is read-only without an operating role, and the audit trail is complete (408ms)
+  ✓  9 [chromium] › playwright/e2e/wms-flow.spec.ts:21:1 › shortage -> RFQ -> approval -> PO -> receiving -> quality -> putaway (1.8s)
+
+  9 passed (13.0s)

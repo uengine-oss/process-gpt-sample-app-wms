@@ -1,0 +1,26 @@
+== setup: a dedicated dock + PO fixture ==
+
+== race: overlapping windows on the same dock, from two connections ==
+[S1] f
+[S1] f
+[S1] 58.917s  attempting insert
+[S1] SCHEDULED
+[S1] 58.929s  insert returned
+[S1] f
+[S1] 01.939s  committed
+[S2] f
+[S2] f
+[S2] 59.922s  attempting insert
+[S2] ERROR:  CONFLICT: dock DOCK-C-01 already has an active appointment overlapping [2026-08-01 09:30:00+00, 2026-08-01 10:30:00+00)
+[S2] CONTEXT:  PL/pgSQL function wms_schedule_dock_appointment(uuid,timestamp with time zone,timestamp with time zone,uuid,uuid,text,uuid,text,text,text,uuid,text) line 90 at RAISE
+[S2] ERROR:  current transaction is aborted, commands ignored until end of transaction block
+[S2] ERROR:  current transaction is aborted, commands ignored until end of transaction block
+[S2] 01.940s  committed
+
+== result: exactly one active appointment survived ==
+DOCK-C-01|SCHEDULED|S1|2026-08-01 09:00:00+00|2026-08-01 10:00:00+00
+1
+-- expected: 1
+
+== cleanup ==
+done.

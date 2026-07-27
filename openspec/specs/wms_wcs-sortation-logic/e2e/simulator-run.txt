@@ -1,0 +1,688 @@
+NOTICE:  truncate cascades to table "work_orders"
+NOTICE:  truncate cascades to table "sortation_profiles"
+
+==============================================================
+0. FIXTURE — two sorters, one conveyor, one AGV (wrong type)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                 register_sorter01                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "7170d691-0f65-4839-b6fc-b9635640655d", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                 register_sorter02                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "equipment_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                 register_conveyor                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "equipment_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                    register_agv                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "3e2e959a-3711-4b7c-b7d2-f0e14bea3308", "equipment_id": "3e2e959a-3711-4b7c-b7d2-f0e14bea3308", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                               boot_sorter01                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "7170d691-0f65-4839-b6fc-b9635640655d", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                               boot_sorter02                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "equipment_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                               boot_conveyor                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "equipment_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                  boot_agv                                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "3e2e959a-3711-4b7c-b7d2-f0e14bea3308", "equipment_id": "3e2e959a-3711-4b7c-b7d2-f0e14bea3308", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+RESET
+
+==============================================================
+1. Profile registration (spec: 분류 설비 프로파일 등록)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  happy path — SORTER gets a profile
+                                                                                                                                                                               create_profile_sorter01                                                                                                                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "d8937199-0cd4-43fc-96b6-7d47aaaa5c0a", "document_id": "d8937199-0cd4-43fc-96b6-7d47aaaa5c0a", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-SORTER-01"}
+(1 row)
+
+  a CONVEYOR is equally valid
+                                                                                                                                                                              create_profile_conveyor                                                                                                                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "document_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "equipment_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-CONV-01"}
+(1 row)
+
+  refusals
+                                    create_profile_on_agv                                     
+----------------------------------------------------------------------------------------------
+ ERR  INVALID: sortation profiles only apply to SORTER/CONVEYOR equipment (SIM-AGV-01 is AGV)
+(1 row)
+
+                                 create_profile_duplicate                                  
+-------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-SORTER-01 already has a sortation profile — update it instead
+(1 row)
+
+                create_profile_zero_gap                 
+--------------------------------------------------------
+ ERR  INVALID: min_carton_gap_mm must be greater than 0
+(1 row)
+
+                        create_profile_inverted_range                        
+-----------------------------------------------------------------------------
+ ERR  INVALID: min_speed_value must be less than or equal to max_speed_value
+(1 row)
+
+                   create_profile_zero_window                    
+-----------------------------------------------------------------
+ ERR  INVALID: sensor_detection_window_ms must be greater than 0
+(1 row)
+
+            create_profile_bad_mode             
+------------------------------------------------
+ ERR  INVALID: speed_mode must be FIXED or AUTO
+(1 row)
+
+RESET
+  SIM-SORTER-02 is deliberately left WITHOUT a profile:
+ equipment_code | equipment_type | has_profile 
+----------------+----------------+-------------
+ SIM-AGV-01     | AGV            | f
+ SIM-CONV-01    | CONVEYOR       | t
+ SIM-SORTER-01  | SORTER         | t
+ SIM-SORTER-02  | SORTER         | f
+(4 rows)
+
+
+  role / tenant refusals
+ act 
+-----
+ 
+(1 row)
+
+SET
+               create_profile_as_quality               
+-------------------------------------------------------
+ ERR  FORBIDDEN: role cannot manage sortation profiles
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                              create_profile_cross_tenant                              
+---------------------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for equipment c170966b-a88d-4a21-be5e-e9e0d5c8de28
+(1 row)
+
+ tenant_b_sees_profiles 
+------------------------
+                      0
+(1 row)
+
+RESET
+
+==============================================================
+2. Profile update (spec: 분류 설비 프로파일 갱신)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  WCS_OPERATOR widens the speed range with the right version
+                                                                                                                                                                     update_max_speed                                                                                                                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 2, "warnings": [], "profile_id": "d8937199-0cd4-43fc-96b6-7d47aaaa5c0a", "document_id": "d8937199-0cd4-43fc-96b6-7d47aaaa5c0a", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["get_sortation_profile", "dispatch_equipment_command"], "equipment_code": "SIM-SORTER-01"}
+(1 row)
+
+  stale version
+             update_stale_version              
+-----------------------------------------------
+ ERR  CONFLICT: expected version 1 but found 2
+(1 row)
+
+  inverted range
+                            update_inverted_range                            
+-----------------------------------------------------------------------------
+ ERR  INVALID: min_speed_value must be less than or equal to max_speed_value
+(1 row)
+
+                update_bad_status                
+-------------------------------------------------
+ ERR  INVALID: status must be ACTIVE or INACTIVE
+(1 row)
+
+RESET
+ min_carton_gap_mm | speed_mode | min_speed_value | max_speed_value | speed_unit | sensor_detection_window_ms | status | version 
+-------------------+------------+-----------------+-----------------+------------+----------------------------+--------+---------
+               150 | FIXED      |             0.5 |             2.5 | MPS        |                         80 | ACTIVE |       2
+(1 row)
+
+
+==============================================================
+3. DIVERT payload validation (spec: Divert 명령 payload 계약)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  happy path
+                                                                                                                                                                          divert_ok                                                                                                                                                                          
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "document_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+  refusals
+                  divert_missing_item                  
+-------------------------------------------------------
+ ERR  INVALID: DIVERT payload requires item_identifier
+(1 row)
+
+                divert_missing_chute                
+----------------------------------------------------
+ ERR  INVALID: DIVERT payload requires target_chute
+(1 row)
+
+                             divert_bad_gap                             
+------------------------------------------------------------------------
+ ERR  INVALID: DIVERT payload expected_gap_mm must be a positive number
+(1 row)
+
+                                            divert_no_profile                                            
+---------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-SORTER-02 has no sortation profile — register one before dispatching DIVERT
+(1 row)
+
+                                  divert_wrong_type                                   
+--------------------------------------------------------------------------------------
+ ERR  INVALID: DIVERT is only valid for SORTER/CONVEYOR equipment (SIM-AGV-01 is AGV)
+(1 row)
+
+RESET
+ command_type | status  |                                      payload                                       
+--------------+---------+------------------------------------------------------------------------------------
+ DIVERT       | PENDING | {"target_chute": "CHUTE-12", "expected_gap_mm": 160, "item_identifier": "BC-0001"}
+(1 row)
+
+
+==============================================================
+4. SET_SPEED payload + profile range (spec: 속도 조정 명령 …)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  inside the profile range (0.5 .. 2.5 MPS)
+                                                                                                                                                                        set_speed_ok                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "0780d927-c657-4bdc-a777-eb9616934ce8", "document_id": "0780d927-c657-4bdc-a777-eb9616934ce8", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+  AUTO delegates to the equipment — no speed_value needed (design.md D8)
+                                                                                                                                                                       set_speed_auto                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "e51ffc36-1f94-49c0-95ff-2ce7d6ad992e", "document_id": "e51ffc36-1f94-49c0-95ff-2ce7d6ad992e", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+  refusals
+                                    set_speed_above_max                                    
+-------------------------------------------------------------------------------------------
+ ERR  INVALID: speed_value 3.5 is outside the profile range 0.5..2.5 MPS for SIM-SORTER-01
+(1 row)
+
+                                    set_speed_below_min                                    
+-------------------------------------------------------------------------------------------
+ ERR  INVALID: speed_value 0.1 is outside the profile range 0.5..2.5 MPS for SIM-SORTER-01
+(1 row)
+
+                                   set_speed_unit_mismatch                                    
+----------------------------------------------------------------------------------------------
+ ERR  INVALID: SET_SPEED speed_unit FPM does not match the profile unit MPS for SIM-SORTER-01
+(1 row)
+
+                        set_speed_fixed_without_value                         
+------------------------------------------------------------------------------
+ ERR  INVALID: SET_SPEED with speed_mode=FIXED requires a numeric speed_value
+(1 row)
+
+                        set_speed_bad_mode                         
+-------------------------------------------------------------------
+ ERR  INVALID: SET_SPEED payload requires speed_mode FIXED or AUTO
+(1 row)
+
+                                            set_speed_no_profile                                            
+------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-SORTER-02 has no sortation profile — register one before dispatching SET_SPEED
+(1 row)
+
+RESET
+
+  an INACTIVE profile is treated like no profile at all (design.md 데이터 모델)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                               deactivate_conveyor_profile                                                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "INACTIVE", "version": 2, "warnings": [], "profile_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "document_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "equipment_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "next_actions": ["get_sortation_profile", "dispatch_equipment_command"], "equipment_code": "SIM-CONV-01"}
+(1 row)
+
+                                       divert_inactive_profile                                       
+-----------------------------------------------------------------------------------------------------
+ ERR  INVALID: sortation profile for SIM-CONV-01 is INACTIVE — activate it before dispatching DIVERT
+(1 row)
+
+                                                                                                                                                              reactivate_conveyor_profile                                                                                                                                                               
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 3, "warnings": [], "profile_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "document_id": "6543b68e-7f38-4e33-a860-784a15c0bdc2", "equipment_id": "c040815b-397b-4fc2-a0ac-44f354f23c65", "next_actions": ["get_sortation_profile", "dispatch_equipment_command"], "equipment_code": "SIM-CONV-01"}
+(1 row)
+
+RESET
+
+==============================================================
+5. Outcome <-> command status consistency (spec: 분류 결과 보고 …)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                 ack                                                                                                                                                                  
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 2, "command_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "document_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+                                                                                                                                                             in_progress                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 3, "command_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "document_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+  inconsistent reports are refused
+                    completed_with_misroute                    
+---------------------------------------------------------------
+ ERR  INVALID: outcome=MISROUTE requires command_status=FAILED
+(1 row)
+
+                       failed_with_success                       
+-----------------------------------------------------------------
+ ERR  INVALID: outcome=SUCCESS requires command_status=COMPLETED
+(1 row)
+
+                              completed_with_unknown                              
+----------------------------------------------------------------------------------
+ ERR  INVALID: DIVERT outcome must be one of SUCCESS, MISROUTE, JAM (got PARTIAL)
+(1 row)
+
+  the consistent one goes through
+                                                                                                                                                      completed_with_success                                                                                                                                                      
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 4, "command_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "document_id": "d82c9714-5b9e-4645-88bf-8de5626ce9e7", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["get_equipment_status"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+  status   | outcome 
+-----------+---------
+ COMPLETED | SUCCESS
+(1 row)
+
+
+  MISROUTE fails the command but never faults the machine (design.md D5)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                     divert_for_misroute                                                                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "7cd20ed2-6619-40dc-849d-901e23aad710", "document_id": "7cd20ed2-6619-40dc-849d-901e23aad710", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                        misroute_report                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "FAILED", "version": 2, "command_id": "7cd20ed2-6619-40dc-849d-901e23aad710", "document_id": "7cd20ed2-6619-40dc-849d-901e23aad710", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["get_equipment_status"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+ command_status | equipment_status | faults_raised 
+----------------+------------------+---------------
+ FAILED         | RUNNING          |             0
+(1 row)
+
+
+==============================================================
+6. JAM auto-escalation (spec: 잼(JAM) 결과의 자동 장애 승격)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  one DIVERT that will jam, plus a second command left PENDING
+                                                                                                                                                                       divert_for_jam                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "document_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+                                                                                                                                                                      pending_set_speed                                                                                                                                                                      
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "0e7df09b-f438-45ea-ae0a-31512ee09bf3", "document_id": "0e7df09b-f438-45ea-ae0a-31512ee09bf3", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                           jam_in_progress                                                                                                                                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 2, "command_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "document_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+                                                                                                                                                         jam_report                                                                                                                                                          
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "FAILED", "version": 3, "command_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "document_id": "36f32bf0-bee6-4a87-9b83-84da3293da0f", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["get_equipment_status"], "equipment_status": "FAULT", "equipment_version": 4}
+(1 row)
+
+RESET
+  the machine faulted and BOTH commands are FAILED and linked to the fault
+ equipment_status | jammed_command | other_command |  fault_code   | severity | distinct_faults_linked | commands_linked 
+------------------+----------------+---------------+---------------+----------+------------------------+-----------------
+ FAULT            | FAILED         | FAILED        | SORTATION_JAM | CRITICAL |                      1 |               2
+(1 row)
+
+  no new command is accepted while the sorter is in FAULT
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                          divert_while_faulted                                           
+---------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment 7170d691-0f65-4839-b6fc-b9635640655d is in FAULT and cannot accept new commands
+(1 row)
+
+RESET
+  a human clears the jam through area 1's existing procedure
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                               resolve_jam                                                                                                                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "RESOLVED", "version": 2, "fault_id": "758b38fa-207c-4e88-88c7-9c223d690641", "warnings": [], "document_id": "758b38fa-207c-4e88-88c7-9c223d690641", "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 5}
+(1 row)
+
+RESET
+ equipment_status | fault_status 
+------------------+--------------
+ IDLE             | RESOLVED
+(1 row)
+
+
+==============================================================
+7. Roles, tenants, RLS/grants
+==============================================================
+  DEVIATION 2 reproduction — WMS_ADMIN may tune a profile but may NOT
+  dispatch, because the shipped wms_dispatch_equipment_command excludes it.
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                 admin_create_profile                                                                                                                                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "c84ce97f-db87-4fdc-aa31-7899537cff61", "document_id": "c84ce97f-db87-4fdc-aa31-7899537cff61", "equipment_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-SORTER-02"}
+(1 row)
+
+                  admin_dispatch_divert                  
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot dispatch equipment commands
+(1 row)
+
+RESET
+  the same DIVERT from a dispatch-capable role goes through
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                  operator_dispatch_divert                                                                                                                                                                   
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "3700d131-9633-4e3b-86c6-d2b8b9253921", "document_id": "3700d131-9633-4e3b-86c6-d2b8b9253921", "equipment_id": "c170966b-a88d-4a21-be5e-e9e0d5c8de28", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+  role lists side by side, extracted from the shipped function bodies
+            proname             |                    roles                     
+--------------------------------+----------------------------------------------
+ wms_create_sortation_profile   | WAREHOUSE_MANAGER,WCS_OPERATOR,WMS_ADMIN
+ wms_dispatch_equipment_command | PROCESS_AGENT,WAREHOUSE_MANAGER,WCS_OPERATOR
+ wms_raise_equipment_fault      | WCS_GATEWAY,WCS_OPERATOR,WMS_ADMIN
+ wms_report_command_result      | WCS_GATEWAY,WMS_ADMIN
+ wms_resolve_equipment_fault    | WAREHOUSE_MANAGER,WCS_OPERATOR,WMS_ADMIN
+ wms_update_sortation_profile   | WAREHOUSE_MANAGER,WCS_OPERATOR,WMS_ADMIN
+(6 rows)
+
+
+  grants on the new table: SELECT only, authenticated only
+    grantee    | privilege_type 
+---------------+----------------
+ authenticated | SELECT
+ postgres      | DELETE
+ postgres      | INSERT
+ postgres      | REFERENCES
+ postgres      | SELECT
+ postgres      | TRIGGER
+ postgres      | TRUNCATE
+ postgres      | UPDATE
+(8 rows)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+                    direct_insert                    
+-----------------------------------------------------
+ ERR  permission denied for table sortation_profiles
+(1 row)
+
+                    direct_update                    
+-----------------------------------------------------
+ ERR  permission denied for table sortation_profiles
+(1 row)
+
+                    direct_delete                    
+-----------------------------------------------------
+ ERR  permission denied for table sortation_profiles
+(1 row)
+
+RESET
+  tenant B sees nothing and is refused on the read RPC
+ act 
+-----
+ 
+(1 row)
+
+SET
+ tenant_b_row_count 
+--------------------
+                  0
+(1 row)
+
+                              tenant_b_reads_a                               
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+RESET
+
+==============================================================
+8. Idempotency
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                register_conveyor02                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "a2c09324-2303-4c2f-83b9-46a926790cbd", "equipment_id": "a2c09324-2303-4c2f-83b9-46a926790cbd", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                   replay_call_1                                                                                                                                                                                    
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "4b7c9f05-5b7b-4c8f-aa53-1e2358bb62ca", "document_id": "4b7c9f05-5b7b-4c8f-aa53-1e2358bb62ca", "equipment_id": "a2c09324-2303-4c2f-83b9-46a926790cbd", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-CONV-02"}
+(1 row)
+
+                                                                                                                                                                                   replay_call_2                                                                                                                                                                                    
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "4b7c9f05-5b7b-4c8f-aa53-1e2358bb62ca", "document_id": "4b7c9f05-5b7b-4c8f-aa53-1e2358bb62ca", "equipment_id": "a2c09324-2303-4c2f-83b9-46a926790cbd", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-CONV-02"}
+(1 row)
+
+RESET
+ conveyor02_profiles 
+---------------------
+                   1
+(1 row)
+
+
+==============================================================
+9. Read model + audit coverage
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                          read_model_sorter01                          
+-----------------------------------------------------------------------
+ {                                                                    +
+     "count": 1,                                                      +
+     "items": [                                                       +
+         {                                                            +
+             "profile": {                                             +
+                 "status": "ACTIVE",                                  +
+                 "version": 2,                                        +
+                 "profile_id": "d8937199-0cd4-43fc-96b6-7d47aaaa5c0a",+
+                 "speed_mode": "FIXED",                               +
+                 "speed_unit": "MPS",                                 +
+                 "updated_at": "2026-07-27T03:21:47.727995+00:00",    +
+                 "max_speed_value": 2.5,                              +
+                 "min_speed_value": 0.5,                              +
+                 "min_carton_gap_mm": 150,                            +
+                 "sensor_detection_window_ms": 80                     +
+             },                                                       +
+             "zone_code": "ZONE-SIM",                                 +
+             "has_profile": true,                                     +
+             "open_faults": [                                         +
+             ],                                                       +
+             "equipment_id": "7170d691-0f65-4839-b6fc-b9635640655d",  +
+             "last_outcome": "JAM",                                   +
+             "equipment_code": "SIM-SORTER-01",                       +
+             "equipment_type": "SORTER",                              +
+             "equipment_status": "IDLE",                              +
+             "equipment_version": 5,                                  +
+             "active_sortation_commands": [                           +
+             ]                                                        +
+         }                                                            +
+     ],                                                               +
+     "result": "ok",                                                  +
+     "tenant_id": "10000000-0000-0000-0000-00000000000a",             +
+     "warehouse_id": "20000000-0000-0000-0000-00000000000a"           +
+ }
+(1 row)
+
+RESET
+ equipment_code | has_profile | speed_mode | min_speed | max_speed | profile_status | last_outcome 
+----------------+-------------+------------+-----------+-----------+----------------+--------------
+ SIM-CONV-01    | true        | AUTO       | 0.2       | 1.0       | ACTIVE         | 
+ SIM-CONV-02    | true        | FIXED      | 0.5       | 2.0       | ACTIVE         | 
+ SIM-SORTER-01  | true        | FIXED      | 0.5       | 2.5       | ACTIVE         | JAM
+ SIM-SORTER-02  | true        | FIXED      | 0.4       | 1.6       | ACTIVE         | 
+(4 rows)
+
+           command            |    entity_type    | events 
+------------------------------+-------------------+--------
+ wms_create_sortation_profile | sortation_profile |      4
+ wms_escalate_sortation_jam   | equipment_fault   |      1
+ wms_raise_equipment_fault    | equipment_command |      3
+ wms_raise_equipment_fault    | equipment_fault   |      1
+ wms_resolve_equipment_fault  | equipment_fault   |      1
+ wms_update_sortation_profile | sortation_profile |      3
+(6 rows)
+
+  the auto escalation row carries the equipment transition (spec: 감사 추적)
+          command           |   entity_type   | before_status | after_status |  fault_code   | outcome 
+----------------------------+-----------------+---------------+--------------+---------------+---------
+ wms_escalate_sortation_jam | equipment_fault | RUNNING       | FAULT        | SORTATION_JAM | JAM
+(1 row)
+
+
+simulator finished.

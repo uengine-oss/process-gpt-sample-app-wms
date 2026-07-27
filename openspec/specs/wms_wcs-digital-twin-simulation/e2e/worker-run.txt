@@ -1,0 +1,495 @@
+==============================================================
+STEP 1/8 — fixture
+==============================================================
+NOTICE:  truncate cascades to table "work_orders"
+NOTICE:  truncate cascades to table "sortation_profiles"
+NOTICE:  truncate cascades to table "wcs_routing_overrides"
+NOTICE:  truncate cascades to table "dispatch_sequences"
+NOTICE:  truncate cascades to table "simulation_profiles"
+NOTICE:  truncate cascades to table "simulation_command_schedules"
+
+==============================================================
+FIXTURE — three machines: a simulated AGV (happy path), a
+simulated SORTER (jam_rate=1), and an AGV left REAL
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+ agv_registered 
+----------------
+ t
+(1 row)
+
+ sorter_registered 
+-------------------
+ t
+(1 row)
+
+ real_registered 
+-----------------
+ t
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+ agv_idle 
+----------
+ t
+(1 row)
+
+ sorter_idle 
+-------------
+ t
+(1 row)
+
+ real_idle 
+-----------
+ t
+(1 row)
+
+RESET
+
+-- simulation mode ON for the AGV and the SORTER, OFF for WRK-REAL
+ act 
+-----
+ 
+(1 row)
+
+SET
+ agv_simulated 
+---------------
+ true
+(1 row)
+
+ sorter_simulated 
+------------------
+ true
+(1 row)
+
+
+-- profiles with REAL (non-zero) delays: the worker must wait between rounds
+ agv_profile 
+-------------
+ ACTIVE
+(1 row)
+
+ sorter_profile 
+----------------
+ ACTIVE
+(1 row)
+
+RESET
+
+-- area 3 requires an ACTIVE sortation profile before a DIVERT is accepted
+ act 
+-----
+ 
+(1 row)
+
+SET
+ sortation_profile 
+-------------------
+ ACTIVE
+(1 row)
+
+RESET
+
+-- dispatch: MOVE to the simulated AGV, DIVERT to the always-jamming SORTER,
+   MOVE to the REAL AGV (which the worker must leave completely alone)
+ act 
+-----
+ 
+(1 row)
+
+SET
+ agv_command 
+-------------
+ PENDING
+(1 row)
+
+ sorter_command 
+----------------
+ PENDING
+(1 row)
+
+ real_command 
+--------------
+ PENDING
+(1 row)
+
+RESET
+
+-- state BEFORE the worker runs: both PENDING, no plans exist yet
+ equipment_code | is_simulated | command_type | status  
+----------------+--------------+--------------+---------
+ WRK-AGV        | t            | MOVE         | PENDING
+ WRK-REAL       | f            | MOVE         | PENDING
+ WRK-SORTER     | t            | DIVERT       | PENDING
+(3 rows)
+
+ simulation_plans_before 
+-------------------------
+                       0
+(1 row)
+
+
+==============================================================
+STEP 2/8 — THE REAL WORKER PROCESS (--once drain)
+  /Users/uengine/process-gpt/services/sample-app-wms/mcp/.venv/bin/python -m wms_mcp.simulator.wcs_gateway_simulator --once
+==============================================================
+2026-07-27 18:12:57,605 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:12:57,636 INFO    scope: 10000000/20000000
+2026-07-27 18:12:57,647 INFO    [10000000/20000000] planned MOVE 3dc8e16d -> ACKNOWLEDGED at 2026-07-27T09:12:57.99692+00:00 (terminal COMPLETED)
+2026-07-27 18:12:57,651 INFO    [10000000/20000000] planned DIVERT e6f33cfa -> ACKNOWLEDGED at 2026-07-27T09:12:57.76082+00:00 (terminal FAILED)
+2026-07-27 18:12:57,917 INFO    [10000000/20000000] DIVERT e6f33cfa -> ACKNOWLEDGED
+2026-07-27 18:12:58,189 INFO    [10000000/20000000] MOVE 3dc8e16d -> ACKNOWLEDGED
+2026-07-27 18:12:58,196 INFO    [10000000/20000000] DIVERT e6f33cfa -> IN_PROGRESS
+2026-07-27 18:12:58,467 INFO    [10000000/20000000] DIVERT e6f33cfa -> FAILED
+2026-07-27 18:12:59,007 INFO    [10000000/20000000] MOVE 3dc8e16d -> IN_PROGRESS
+2026-07-27 18:12:59,547 INFO    [10000000/20000000] MOVE 3dc8e16d -> COMPLETED
+2026-07-27 18:12:59,549 INFO    done: planned=2 advanced=6 finished=2 errors=0 outstanding=0
+worker exit code: 0
+
+==============================================================
+STEP 3/8 — assertions
+==============================================================
+
+==============================================================
+A. Command outcomes — the worker moved these, nobody clicked
+==============================================================
+ equipment_code | is_simulated | command_type |  status   | outcome | simulated_flag 
+----------------+--------------+--------------+-----------+---------+----------------
+ WRK-AGV        | t            | MOVE         | COMPLETED | SUCCESS | true
+ WRK-REAL       | f            | MOVE         | PENDING   |         | 
+ WRK-SORTER     | t            | DIVERT       | FAILED    | JAM     | true
+(3 rows)
+
+
+-- expected: WRK-AGV MOVE COMPLETED/SUCCESS, WRK-SORTER DIVERT FAILED/JAM,
+   WRK-REAL still PENDING (is_simulated=false is never touched)
+ agv_completed | sorter_jammed | real_untouched 
+---------------+---------------+----------------
+ t             | t             | t
+(1 row)
+
+
+==============================================================
+B. The full transition trail per command (area 1 status events)
+==============================================================
+ equipment_code | seq |      event_type      | outcome 
+----------------+-----+----------------------+---------
+ WRK-AGV        |   4 | STATUS_CHANGED       | 
+ WRK-AGV        |   8 | COMMAND_ACKNOWLEDGED | 
+ WRK-AGV        |  12 | COMMAND_PROGRESS     | 
+ WRK-AGV        |  13 | COMMAND_COMPLETED    | SUCCESS
+ WRK-AGV        |  14 | STATUS_CHANGED       | 
+ WRK-REAL       |   6 | STATUS_CHANGED       | 
+ WRK-SORTER     |   5 | STATUS_CHANGED       | 
+ WRK-SORTER     |   7 | COMMAND_ACKNOWLEDGED | 
+ WRK-SORTER     |   9 | COMMAND_PROGRESS     | 
+ WRK-SORTER     |  10 | COMMAND_FAILED       | JAM
+(10 rows)
+
+
+==============================================================
+C. Cross-area propagation fired for a SIMULATED machine
+   (area 3: JAM must escalate to a SORTATION_JAM fault)
+==============================================================
+ equipment_code |  fault_code   | severity | fault_status 
+----------------+---------------+----------+--------------
+ WRK-SORTER     | SORTATION_JAM | CRITICAL | OPEN
+(1 row)
+
+ equipment_code | equipment_status 
+----------------+------------------
+ WRK-AGV        | IDLE
+ WRK-REAL       | RUNNING
+ WRK-SORTER     | FAULT
+(3 rows)
+
+
+==============================================================
+D. Plans are consumed — terminal plans are deleted, none linger
+==============================================================
+ plans_remaining 
+-----------------
+               0
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+ schedule_status_rows 
+----------------------
+                    0
+(1 row)
+
+
+-- the real AGV's PENDING command never entered the due-action feed
+ unplanned_left 
+----------------
+              0
+(1 row)
+
+RESET
+
+==============================================================
+E. Audit trail written by the WORKER identity (WCS_GATEWAY)
+==============================================================
+            command            | events |          actor           
+-------------------------------+--------+--------------------------
+ wms_advance_simulated_command |      6 | wcs-gateway-a@demo.local
+ wms_plan_simulated_command    |      2 | wcs-gateway-a@demo.local
+ wms_report_command_result     |      6 | wcs-gateway-a@demo.local
+(3 rows)
+
+
+==============================================================
+STEP 4/8 — restart-safety fixture
+==============================================================
+
+==============================================================
+F. Restart safety (design.md D3) — slow the AGV down, dispatch,
+   then drive it with SEPARATE --tick processes
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+ slowed_profile 
+----------------
+ ACTIVE
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+ restart_command_status 
+------------------------
+ PENDING
+(1 row)
+
+RESET
+
+==============================================================
+STEP 5/8 — SEPARATE --tick PROCESSES (each exit is a restart)
+==============================================================
+--- tick #1 (pid of a brand new python process) ---
+2026-07-27 18:12:59,977 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:12:59,993 INFO    scope: 10000000/20000000
+2026-07-27 18:12:59,999 INFO    [10000000/20000000] planned MOVE 1804af16 -> ACKNOWLEDGED at 2026-07-27T09:13:01.194829+00:00 (terminal COMPLETED)
+2026-07-27 18:13:00,000 INFO    done: planned=1 advanced=0 finished=0 errors=0 outstanding=1
+ command_status | plan_next_step | plan_frozen_outcome |          next_run_at          
+----------------+----------------+---------------------+-------------------------------
+ PENDING        | ACKNOWLEDGED   | COMPLETED           | 2026-07-27 09:13:01.194829+00
+(1 row)
+
+--- tick #2 (pid of a brand new python process) ---
+2026-07-27 18:13:01,407 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:13:01,425 INFO    scope: 10000000/20000000
+2026-07-27 18:13:01,430 INFO    [10000000/20000000] MOVE 1804af16 -> ACKNOWLEDGED
+2026-07-27 18:13:01,432 INFO    done: planned=0 advanced=1 finished=0 errors=0 outstanding=1
+ command_status | plan_next_step | plan_frozen_outcome |          next_run_at          
+----------------+----------------+---------------------+-------------------------------
+ ACKNOWLEDGED   | IN_PROGRESS    | COMPLETED           | 2026-07-27 09:13:02.626508+00
+(1 row)
+
+--- tick #3 (pid of a brand new python process) ---
+2026-07-27 18:13:02,841 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:13:02,852 INFO    scope: 10000000/20000000
+2026-07-27 18:13:02,858 INFO    [10000000/20000000] MOVE 1804af16 -> IN_PROGRESS
+2026-07-27 18:13:02,859 INFO    done: planned=0 advanced=1 finished=0 errors=0 outstanding=1
+ command_status | plan_next_step | plan_frozen_outcome |          next_run_at          
+----------------+----------------+---------------------+-------------------------------
+ IN_PROGRESS    | COMPLETED      | COMPLETED           | 2026-07-27 09:13:04.054452+00
+(1 row)
+
+--- tick #4 (pid of a brand new python process) ---
+2026-07-27 18:13:04,307 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:13:04,322 INFO    scope: 10000000/20000000
+2026-07-27 18:13:04,327 INFO    [10000000/20000000] MOVE 1804af16 -> COMPLETED
+2026-07-27 18:13:04,328 INFO    done: planned=0 advanced=1 finished=1 errors=0 outstanding=0
+ command_status | plan_next_step | plan_frozen_outcome | next_run_at 
+----------------+----------------+---------------------+-------------
+ COMPLETED      |                |                     | 
+(1 row)
+
+reached a terminal state after 4 separate processes
+
+==============================================================
+STEP 6/8 — restart-safety assertions
+==============================================================
+-- the restart command finished, and finished exactly ONCE
+  status   | acks | progresses | terminals 
+-----------+------+------------+-----------
+ COMPLETED |    1 |          1 |         1
+(1 row)
+
+-- and its plan row is gone (terminal plans are deleted, not orphaned)
+ plans_remaining 
+-----------------
+               0
+(1 row)
+
+
+==============================================================
+STEP 7/8 — PALLETIZE fixture (area 5 chain in front of a
+           SIMULATED robot cell)
+==============================================================
+NOTICE:  truncate cascades to table "work_orders"
+
+==============================================================
+G. PALLETIZE through the worker (tasks.md 6.3) — a SIMULATED
+   robot cell must drive area 5 per-item completion propagation
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+ cell_registered 
+-----------------
+ t
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+ cell_idle 
+-----------
+ t
+(1 row)
+
+RESET
+
+-- simulate the cell, with a fast never-failing profile
+ act 
+-----
+ 
+(1 row)
+
+SET
+ cell_simulated 
+----------------
+ true
+(1 row)
+
+ cell_profile 
+--------------
+ ACTIVE
+(1 row)
+
+
+-- area 2 + area 5 chain: wave -> two outbound units -> two sequences
+             opened_wave              
+--------------------------------------
+ a1ef7b65-ecd8-426b-8f6a-26d11bac3f11
+(1 row)
+
+  seq1  
+--------
+ QUEUED
+(1 row)
+
+  seq2  
+--------
+ QUEUED
+(1 row)
+
+RESET
+
+-- one PALLETIZE carrying BOTH sequences goes to the simulated cell
+ act 
+-----
+ 
+(1 row)
+
+SET
+ palletize_dispatched 
+----------------------
+ ok
+(1 row)
+
+RESET
+
+-- BEFORE the worker: command PENDING, both sequences DISPATCHED
+ command_type | command_status | planned_items 
+--------------+----------------+---------------
+ PALLETIZE    | PENDING        |             2
+(1 row)
+
+ store_code  | sequence_position | sequence_status | order_status 
+-------------+-------------------+-----------------+--------------
+ STORE-WRK-1 |                 1 | DISPATCHED      | DISPATCHED
+ STORE-WRK-2 |                 2 | DISPATCHED      | DISPATCHED
+(2 rows)
+
+
+--- the real worker drains the PALLETIZE ---
+2026-07-27 18:13:04,815 INFO    signed in as WCS_GATEWAY user_id=a1b8ccab-5b9f-4068-9db4-787c2387c30d
+2026-07-27 18:13:04,820 INFO    scope: 10000000/20000000
+2026-07-27 18:13:04,824 INFO    [10000000/20000000] planned PALLETIZE 1173104c -> ACKNOWLEDGED at 2026-07-27T09:13:04.992613+00:00 (terminal COMPLETED)
+2026-07-27 18:13:05,093 INFO    [10000000/20000000] PALLETIZE 1173104c -> ACKNOWLEDGED
+2026-07-27 18:13:05,361 INFO    [10000000/20000000] PALLETIZE 1173104c -> IN_PROGRESS
+2026-07-27 18:13:05,631 INFO    [10000000/20000000] PALLETIZE 1173104c -> COMPLETED
+2026-07-27 18:13:05,634 INFO    done: planned=1 advanced=3 finished=1 errors=0 outstanding=0
+
+==============================================================
+STEP 8/8 — per-item propagation assertions (tasks.md 6.3)
+==============================================================
+
+-- the worker's ONE command report moved BOTH sequences and BOTH orders
+ store_code  | sequence_position | sequence_status | load_position | order_status 
+-------------+-------------------+-----------------+---------------+--------------
+ STORE-WRK-1 |                 1 | COMPLETED       |             1 | COMPLETED
+ STORE-WRK-2 |                 2 | COMPLETED       |             2 | COMPLETED
+(2 rows)
+
+
+-- the terminal event the worker wrote: outcome SUCCESS, every item LOADED,
+   each with its own load_position (this is what area 5's trigger consumed)
+ outcome | simulated | item_count | item_outcomes 
+---------+-----------+------------+---------------
+ SUCCESS | true      |          2 | LOADED,LOADED
+(1 row)
+
+
+-- assertion: 2 sequences COMPLETED, 2 orders COMPLETED, distinct positions
+ sequences_completed | orders_completed | distinct_load_positions 
+---------------------+------------------+-------------------------
+ t                   | t                | t
+(1 row)
+
+
+-- the propagation audit rows nobody clicked (actor = the worker identity)
+            command             | events |          actor           
+--------------------------------+--------+--------------------------
+ wms_propagate_palletize_result |     12 | wcs-gateway-a@demo.local
+(1 row)
+
+
+==============================================================
+DONE — every transition above was made by the external worker
+==============================================================

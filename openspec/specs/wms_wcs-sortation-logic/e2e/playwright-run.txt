@@ -1,0 +1,12 @@
+
+Running 7 tests using 1 worker
+
+  ✓  1 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:135:1 › register -> dispatch -> gateway completes -> fault -> operator resolves (1.6s)
+  ✓  2 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:229:1 › WCS_OPERATOR cannot register equipment, and the audit trail is complete (311ms)
+  ✓  3 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:145:1 › profile -> DIVERT -> MISROUTE (no fault) -> JAM (auto fault) -> operator resolves (1.8s)
+  ✓  4 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:269:1 › WMS_ADMIN can tune a profile but cannot dispatch, and the audit trail is complete (768ms)
+  ✓  5 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:198:1 › open wave -> queue work orders -> release -> gateway completes -> work order COMPLETED (1.2s)
+  ✓  6 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:291:1 › WES board is read-only without an operating role, and the audit trail is complete (383ms)
+  ✓  7 [chromium] › playwright/e2e/wms-flow.spec.ts:21:1 › shortage -> RFQ -> approval -> PO -> receiving -> quality -> putaway (1.8s)
+
+  7 passed (9.2s)

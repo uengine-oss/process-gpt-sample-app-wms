@@ -1,0 +1,666 @@
+NOTICE:  truncate cascades to table "work_orders"
+NOTICE:  truncate cascades to table "sortation_profiles"
+NOTICE:  truncate cascades to table "wcs_routing_overrides"
+NOTICE:  truncate cascades to table "dispatch_sequences"
+NOTICE:  truncate cascades to table "simulation_profiles"
+NOTICE:  truncate cascades to table "simulation_command_schedules"
+
+==============================================================
+0. FIXTURE — one AGV to simulate, one sorter, one AGV left real
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                    register_agv                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                  register_sorter                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                   register_real                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                  boot_agv                                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                boot_sorter                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                 boot_real                                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+RESET
+
+==============================================================
+1. Simulation mode (spec: 설비 시뮬레이션 모드 지정)
+   status must NOT change; a stale version must be CONFLICT
+==============================================================
+ equipment_code  | status | version | is_simulated 
+-----------------+--------+---------+--------------
+ SIM-TWIN-AGV    | IDLE   |       2 | f
+ SIM-TWIN-REAL   | IDLE   |       2 | f
+ SIM-TWIN-SORTER | IDLE   |       2 | f
+(3 rows)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                      mode_on_agv                                                                                                                                      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 3, "warnings": [], "document_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "is_simulated": true, "next_actions": ["register_simulation_profile", "get_simulation_profile"]}
+(1 row)
+
+            stale_version_conflict             
+-----------------------------------------------
+ ERR  CONFLICT: expected version 2 but found 3
+(1 row)
+
+                                                                                                                                    mode_on_sorter                                                                                                                                     
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 3, "warnings": [], "document_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "is_simulated": true, "next_actions": ["register_simulation_profile", "get_simulation_profile"]}
+(1 row)
+
+RESET
+ equipment_code  | status | version | is_simulated 
+-----------------+--------+---------+--------------
+ SIM-TWIN-AGV    | IDLE   |       3 | t
+ SIM-TWIN-REAL   | IDLE   |       2 | f
+ SIM-TWIN-SORTER | IDLE   |       3 | t
+(3 rows)
+
+-- role gate: WCS_OPERATOR may tune profiles but not flip the flag
+ act 
+-----
+ 
+(1 row)
+
+SET
+                   operator_cannot_set_mode                   
+--------------------------------------------------------------
+ ERR  FORBIDDEN: role cannot change equipment simulation mode
+(1 row)
+
+RESET
+-- cross tenant: tenant B admin has no scope here
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                  tenant_b_forbidden                                   
+---------------------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for equipment bafd3718-6f9c-4575-b5cb-17f28559018c
+(1 row)
+
+RESET
+
+==============================================================
+2. Profiles (spec: 프로파일 등록과 갱신 / 조회와 기본값 대체)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- happy path: zero delays so this script can walk a command in one go
+                                                                                                                                                          register_profile_agv                                                                                                                                                           
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "profile_id": "948a2a1e-04ef-4826-a3dd-ee599e63bfa9", "document_id": "948a2a1e-04ef-4826-a3dd-ee599e63bfa9", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_simulation_profile", "update_simulation_profile"], "equipment_code": "SIM-TWIN-AGV"}
+(1 row)
+
+-- duplicate registration is refused
+                                     duplicate_profile                                     
+-------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-TWIN-AGV already has a simulation profile — update it instead
+(1 row)
+
+-- a machine that is not in simulation mode cannot have a profile
+                                profile_on_real_equipment                                 
+------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-TWIN-REAL is not in simulation mode — set is_simulated first
+(1 row)
+
+-- range and probability validation
+               min_greater_than_max               
+--------------------------------------------------
+ ERR  INVALID: every delay range needs min <= max
+(1 row)
+
+             failure_rate_out_of_range              
+----------------------------------------------------
+ ERR  INVALID: failure_rate must be between 0 and 1
+(1 row)
+
+RESET
+-- idempotency: the same key twice must create exactly one profile
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                 idem_first                                                                                                                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "document_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_simulation_profile", "update_simulation_profile"], "equipment_code": "SIM-TWIN-SORTER"}
+(1 row)
+
+                                                                                                                                                                idem_replay                                                                                                                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "document_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_simulation_profile", "update_simulation_profile"], "equipment_code": "SIM-TWIN-SORTER"}
+(1 row)
+
+RESET
+ sorter_profile_rows 
+---------------------
+                   1
+(1 row)
+
+-- update: stale version is CONFLICT, empty update is INVALID
+ act 
+-----
+ 
+(1 row)
+
+SET
+              update_stale_version              
+------------------------------------------------
+ ERR  CONFLICT: expected version 99 but found 1
+(1 row)
+
+         update_nothing          
+---------------------------------
+ ERR  INVALID: nothing to update
+(1 row)
+
+RESET
+-- read: registered vs system default, and the INACTIVE fallback
+      code       | simulated |     source     | failure_rate | registered_status 
+-----------------+-----------+----------------+--------------+-------------------
+ SIM-TWIN-AGV    | true      | REGISTERED     | 0            | ACTIVE
+ SIM-TWIN-REAL   | false     | SYSTEM_DEFAULT | 0.05         | 
+ SIM-TWIN-SORTER | true      | REGISTERED     | 0            | ACTIVE
+(3 rows)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                         deactivate_sorter_profile                                                                                                                          
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "INACTIVE", "version": 2, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "document_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_simulation_profile"]}
+(1 row)
+
+RESET
+-- SIM-TWIN-SORTER now falls back to the system defaults even though its row still exists
+      code       |     source     | ack_max | registered_status 
+-----------------+----------------+---------+-------------------
+ SIM-TWIN-SORTER | SYSTEM_DEFAULT | 1500    | INACTIVE
+(1 row)
+
+
+==============================================================
+3. Planning (spec: 시뮬레이션 명령 계획 수립 / 어휘 매핑)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                        dispatch_move                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "dae19780-f7b5-42bc-80f9-db721e203824", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 4}
+(1 row)
+
+                                                                                                                                                                 dispatch_on_real_equipment                                                                                                                                                                  
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "18dc9833-efad-4375-b2ef-06684ad70fa5", "document_id": "18dc9833-efad-4375-b2ef-06684ad70fa5", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+-- only WCS_GATEWAY may plan
+ act 
+-----
+ 
+(1 row)
+
+SET
+                 manager_cannot_plan                 
+-----------------------------------------------------
+ ERR  FORBIDDEN: role cannot plan simulated commands
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                                    plan_move                                                                                                                                                                                                                                                                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 1, "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "861ac866-3f45-4030-b925-fc7adf263afb", "next_run_at": "2026-07-27T09:03:23.078134+00:00", "next_status": "ACKNOWLEDGED", "schedule_id": "861ac866-3f45-4030-b925-fc7adf263afb", "command_type": "MOVE", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "planned_detail": {"outcome": "SUCCESS", "simulated": true}, "profile_source": "REGISTERED", "already_planned": false, "planned_terminal_status": "COMPLETED"}
+(1 row)
+
+-- idempotent: already_planned=true and no second row
+                                                                                                                                                                                                                                                                                    plan_move_again                                                                                                                                                                                                                                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 1, "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "861ac866-3f45-4030-b925-fc7adf263afb", "next_run_at": "2026-07-27T09:03:23.078134+00:00", "next_status": "ACKNOWLEDGED", "schedule_id": "861ac866-3f45-4030-b925-fc7adf263afb", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "planned_detail": {"outcome": "SUCCESS", "simulated": true}, "already_planned": true, "planned_terminal_status": "COMPLETED"}
+(1 row)
+
+-- a command on non-simulated equipment cannot be planned at all
+                                            plan_real_equipment                                            
+-----------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment SIM-TWIN-REAL is not in simulation mode — its commands are the real gateway's job
+(1 row)
+
+RESET
+ schedule_rows_for_move 
+------------------------
+                      1
+(1 row)
+
+-- vocabulary mapping: DIVERT gets the sortation words, MOVE the generic ones
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                   sortation_profile                                                                                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "profile_id": "e666d9e5-ae9f-4d65-aacd-79115962e34e", "document_id": "e666d9e5-ae9f-4d65-aacd-79115962e34e", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["dispatch_equipment_command", "get_sortation_profile", "update_sortation_profile"], "equipment_code": "SIM-TWIN-SORTER"}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                            sorter_always_jams                                                                                                                            
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 3, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "document_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_simulation_profile"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                       dispatch_divert                                                                                                                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "document_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 4}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                                              plan_divert                                                                                                                                                                                                                                                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 1, "command_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "document_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "next_run_at": "2026-07-27T09:03:23.083403+00:00", "next_status": "ACKNOWLEDGED", "schedule_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "command_type": "DIVERT", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "planned_detail": {"reason": "SIMULATED_JAM", "outcome": "JAM", "simulated": true}, "profile_source": "REGISTERED", "already_planned": false, "planned_terminal_status": "FAILED"}
+(1 row)
+
+RESET
+ command_type | planned_terminal_status | planned_outcome 
+--------------+-------------------------+-----------------
+ DIVERT       | FAILED                  | JAM
+ MOVE         | COMPLETED               | SUCCESS
+(2 rows)
+
+
+==============================================================
+4. Due actions (spec: 대기 중인 액션 조회 / 비대상 설비 배제)
+==============================================================
+-- as_of in the past: nothing has come due yet
+ act 
+-----
+ 
+(1 row)
+
+SET
+        before_due        
+--------------------------
+ {                       +
+     "due_count": 0,     +
+     "unplanned_count": 0+
+ }
+(1 row)
+
+-- as_of = now: both plans are due (delays are 0), sorted by next_run_at
+ command_type | next_status  
+--------------+--------------
+ MOVE         | ACKNOWLEDGED
+ DIVERT       | ACKNOWLEDGED
+(2 rows)
+
+-- the non-simulated AGV command appears in neither list
+ real_equipment_entries 
+------------------------
+                      0
+(1 row)
+
+RESET
+-- a non-gateway role cannot read the polling view at all
+ act 
+-----
+ 
+(1 row)
+
+SET
+                   non_gateway_polling                   
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot read due simulation actions
+(1 row)
+
+RESET
+
+==============================================================
+5. Advancing (spec: 시뮬레이션 명령 진행 보고)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                             advance_1                                                                                                                                                                                                                                                                                                              
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 2, "warnings": [], "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "861ac866-3f45-4030-b925-fc7adf263afb", "next_run_at": "2026-07-27T09:03:23.086819+00:00", "next_status": "IN_PROGRESS", "schedule_id": "861ac866-3f45-4030-b925-fc7adf263afb", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "plan_remaining": true, "reported_detail": {"phase": "ACKNOWLEDGED", "simulated": true}, "reported_status": "ACKNOWLEDGED", "equipment_status": "RUNNING"}
+(1 row)
+
+ next_status | planned_terminal_status 
+-------------+-------------------------
+ IN_PROGRESS | COMPLETED
+(1 row)
+
+                                                                                                                                                                                                                                                                                                           advance_2                                                                                                                                                                                                                                                                                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 3, "warnings": [], "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "861ac866-3f45-4030-b925-fc7adf263afb", "next_run_at": "2026-07-27T09:03:23.088548+00:00", "next_status": "COMPLETED", "schedule_id": "861ac866-3f45-4030-b925-fc7adf263afb", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "plan_remaining": true, "reported_detail": {"phase": "IN_PROGRESS", "simulated": true}, "reported_status": "IN_PROGRESS", "equipment_status": "RUNNING"}
+(1 row)
+
+                                                                                                                                                                                                                                                                               advance_3_terminal                                                                                                                                                                                                                                                                                
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 4, "warnings": [], "command_id": "dae19780-f7b5-42bc-80f9-db721e203824", "document_id": "861ac866-3f45-4030-b925-fc7adf263afb", "next_run_at": null, "next_status": null, "schedule_id": "861ac866-3f45-4030-b925-fc7adf263afb", "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "next_actions": ["get_equipment_status", "get_simulation_schedule_status"], "plan_remaining": false, "reported_detail": {"outcome": "SUCCESS", "simulated": true}, "reported_status": "COMPLETED", "equipment_status": "IDLE"}
+(1 row)
+
+-- the plan is gone, so a fourth call has nothing to advance
+                                       advance_without_plan                                        
+---------------------------------------------------------------------------------------------------
+ ERR  INVALID: no simulation plan for command dae19780-f7b5-42bc-80f9-db721e203824 — plan it first
+(1 row)
+
+RESET
+ move_command_status 
+---------------------
+ COMPLETED
+(1 row)
+
+      event_type      | outcome 
+----------------------+---------
+ STATUS_CHANGED       | 
+ COMMAND_ACKNOWLEDGED | 
+ COMMAND_PROGRESS     | 
+ COMMAND_COMPLETED    | SUCCESS
+ STATUS_CHANGED       | 
+(5 rows)
+
+-- JAM: the DIVERT plan is FAILED/JAM, and area 3's escalation must fire
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                             divert_ack                                                                                                                                                                                                                                                                                                             
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 2, "warnings": [], "command_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "document_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "next_run_at": "2026-07-27T09:03:23.090997+00:00", "next_status": "IN_PROGRESS", "schedule_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "plan_remaining": true, "reported_detail": {"phase": "ACKNOWLEDGED", "simulated": true}, "reported_status": "ACKNOWLEDGED", "equipment_status": "RUNNING"}
+(1 row)
+
+                                                                                                                                                                                                                                                                                                      divert_progress                                                                                                                                                                                                                                                                                                       
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 3, "warnings": [], "command_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "document_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "next_run_at": "2026-07-27T09:03:23.091761+00:00", "next_status": "FAILED", "schedule_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "plan_remaining": true, "reported_detail": {"phase": "IN_PROGRESS", "simulated": true}, "reported_status": "IN_PROGRESS", "equipment_status": "RUNNING"}
+(1 row)
+
+                                                                                                                                                                                                                                                                                          divert_terminal                                                                                                                                                                                                                                                                                          
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "FAILED", "version": 4, "warnings": [], "command_id": "821c4202-33d2-4e6d-a6ba-983832227b04", "document_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "next_run_at": null, "next_status": null, "schedule_id": "4bffc4ed-4305-406c-8a11-7284302f4532", "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "next_actions": ["get_equipment_status", "get_simulation_schedule_status"], "plan_remaining": false, "reported_detail": {"reason": "SIMULATED_JAM", "outcome": "JAM", "simulated": true}, "reported_status": "FAILED", "equipment_status": "FAULT"}
+(1 row)
+
+RESET
+ divert_command_status | sorter_status 
+-----------------------+---------------
+ FAILED                | FAULT
+(1 row)
+
+  fault_code   | severity | fault_status 
+---------------+----------+--------------
+ SORTATION_JAM | CRITICAL | OPEN
+(1 row)
+
+-- a not-yet-due plan is refused
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                  simulate_the_third_agv                                                                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "RUNNING", "version": 4, "warnings": [], "document_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "is_simulated": true, "next_actions": ["register_simulation_profile", "get_simulation_profile"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                               slow_profile                                                                                                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "profile_id": "25b67f10-cd9e-43d7-bc8b-0b485d44c359", "document_id": "25b67f10-cd9e-43d7-bc8b-0b485d44c359", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "next_actions": ["get_simulation_profile", "update_simulation_profile"], "equipment_code": "SIM-TWIN-REAL"}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                                    plan_slow                                                                                                                                                                                                                                                                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 1, "command_id": "18dc9833-efad-4375-b2ef-06684ad70fa5", "document_id": "af7cf199-5627-4655-8fe5-cb9934088f00", "next_run_at": "2026-07-27T09:04:23.096114+00:00", "next_status": "ACKNOWLEDGED", "schedule_id": "af7cf199-5627-4655-8fe5-cb9934088f00", "command_type": "MOVE", "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c", "next_actions": ["get_due_simulation_actions", "advance_simulated_command"], "planned_detail": {"outcome": "SUCCESS", "simulated": true}, "profile_source": "REGISTERED", "already_planned": false, "planned_terminal_status": "COMPLETED"}
+(1 row)
+
+                                                                          advance_not_due                                                                          
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: simulation step for command 18dc9833-efad-4375-b2ef-06684ad70fa5 is not due until 2026-07-27 09:04:23.096114+00 (now 2026-07-27 09:03:23.096645+00)
+(1 row)
+
+RESET
+ slow_command_status 
+---------------------
+ PENDING
+(1 row)
+
+-- monitoring read: due_only filters the 60s-away plan out
+ all_plans | due_plans 
+-----------+-----------
+         1 |         0
+(1 row)
+
+
+==============================================================
+6. Scenarios (spec: what-if 정의 / 실행과 예상 타임라인)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                        create_scenario                                                                                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "DRAFT", "version": 1, "document_id": "3ebbe896-e4ef-43f7-9b54-a41a948a384d", "scenario_id": "3ebbe896-e4ef-43f7-9b54-a41a948a384d", "next_actions": ["run_simulation_scenario", "get_simulation_scenario_status"], "command_count": 10, "equipment_count": 2}
+(1 row)
+
+-- empty equipment set / non-positive count / unknown equipment are refused
+              empty_equipment_set              
+-----------------------------------------------
+ ERR  INVALID: equipment_ids must not be empty
+(1 row)
+
+                 zero_command_count                 
+----------------------------------------------------
+ ERR  INVALID: command_count must be greater than 0
+(1 row)
+
+                                                   unknown_equipment                                                   
+-----------------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment 3f1eb1a7-c626-451e-9974-0a6e29336fb1 is not in warehouse 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+RESET
+-- a role with no scenario rights is refused
+ act 
+-----
+ 
+(1 row)
+
+SET
+                  quality_cannot_run                  
+------------------------------------------------------
+ ERR  FORBIDDEN: role cannot run simulation scenarios
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         run_1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "run_id": "4853b946-937b-4cbd-b38b-c9431796739d", "status": "RUN", "version": 2, "warnings": ["EQUIPMENT_NOT_AVAILABLE: SIM-TWIN-SORTER(FAULT) — counted in the projection anyway", "OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee"], "assumptions": {"model": "ceil(command_count / equipment_count) * mean(ack+progress+completion)", "equipment": [{"profile": {"source": "REGISTERED", "jam_rate": 0, "is_default": false, "profile_id": "948a2a1e-04ef-4826-a3dd-ee599e63bfa9", "failure_rate": 0, "profile_status": "ACTIVE", "profile_version": 1, "ack_delay_ms_max": 0, "ack_delay_ms_min": 0, "progress_delay_ms_max": 0, "progress_delay_ms_min": 0, "completion_delay_ms_max": 0, "completion_delay_ms_min": 0}, "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "is_simulated": true, "equipment_code": "SIM-TWIN-AGV", "equipment_type": "AGV", "equipment_status": "IDLE"}, {"profile": {"source": "REGISTERED", "jam_rate": 1, "is_default": false, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "failure_rate": 1, "profile_status": "ACTIVE", "profile_version": 3, "ack_delay_ms_max": 0, "ack_delay_ms_min": 0, "progress_delay_ms_max": 0, "progress_delay_ms_min": 0, "completion_delay_ms_max": 0, "completion_delay_ms_min": 0}, "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "is_simulated": true, "equipment_code": "SIM-TWIN-SORTER", "equipment_type": "SORTER", "equipment_status": "FAULT"}], "command_count": 10, "equipment_count": 2, "mean_failure_rate": 0.5000, "mean_service_time_ms": 0}, "document_id": "4853b946-937b-4cbd-b38b-c9431796739d", "scenario_id": "3ebbe896-e4ef-43f7-9b54-a41a948a384d", "next_actions": ["get_simulation_scenario_status", "run_simulation_scenario"], "projected_duration_ms": 0, "projected_round_count": 5, "projected_completion_at": "2026-07-27T09:03:23.100853+00:00", "projected_failure_count": 5}
+(1 row)
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         run_2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "run_id": "9d26f07f-53ce-435e-b7fd-89694e33e650", "status": "RUN", "version": 3, "warnings": ["EQUIPMENT_NOT_AVAILABLE: SIM-TWIN-SORTER(FAULT) — counted in the projection anyway", "OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee"], "assumptions": {"model": "ceil(command_count / equipment_count) * mean(ack+progress+completion)", "equipment": [{"profile": {"source": "REGISTERED", "jam_rate": 0, "is_default": false, "profile_id": "948a2a1e-04ef-4826-a3dd-ee599e63bfa9", "failure_rate": 0, "profile_status": "ACTIVE", "profile_version": 1, "ack_delay_ms_max": 0, "ack_delay_ms_min": 0, "progress_delay_ms_max": 0, "progress_delay_ms_min": 0, "completion_delay_ms_max": 0, "completion_delay_ms_min": 0}, "equipment_id": "fffcea8d-0c54-47d3-8bcd-b5e0da6b5713", "is_simulated": true, "equipment_code": "SIM-TWIN-AGV", "equipment_type": "AGV", "equipment_status": "IDLE"}, {"profile": {"source": "REGISTERED", "jam_rate": 1, "is_default": false, "profile_id": "4167e5f0-e555-4130-bc93-8720a408d3f0", "failure_rate": 1, "profile_status": "ACTIVE", "profile_version": 3, "ack_delay_ms_max": 0, "ack_delay_ms_min": 0, "progress_delay_ms_max": 0, "progress_delay_ms_min": 0, "completion_delay_ms_max": 0, "completion_delay_ms_min": 0}, "equipment_id": "ca6df2e7-2af9-4112-99d6-c712ca57401a", "is_simulated": true, "equipment_code": "SIM-TWIN-SORTER", "equipment_type": "SORTER", "equipment_status": "FAULT"}], "command_count": 10, "equipment_count": 2, "mean_failure_rate": 0.5000, "mean_service_time_ms": 0}, "document_id": "9d26f07f-53ce-435e-b7fd-89694e33e650", "scenario_id": "3ebbe896-e4ef-43f7-9b54-a41a948a384d", "next_actions": ["get_simulation_scenario_status", "run_simulation_scenario"], "projected_duration_ms": 0, "projected_round_count": 5, "projected_completion_at": "2026-07-27T09:03:23.102137+00:00", "projected_failure_count": 5}
+(1 row)
+
+RESET
+ scenario_status | run_count 
+-----------------+-----------
+ RUN             |         2
+(1 row)
+
+ projected_round_count | projected_duration_ms | projected_failure_count | machines | mean_ms |                                                                                                                       warnings                                                                                                                       
+-----------------------+-----------------------+-------------------------+----------+---------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                     5 |                     0 |                       5 | 2        | 0       | EQUIPMENT_NOT_AVAILABLE: SIM-TWIN-SORTER(FAULT) — counted in the projection anyway | OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee
+                     5 |                     0 |                       5 | 2        | 0       | EQUIPMENT_NOT_AVAILABLE: SIM-TWIN-SORTER(FAULT) — counted in the projection anyway | OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee
+(2 rows)
+
+-- CRITICAL: running a scenario dispatched nothing
+ commands_after_scenarios | unchanged 
+--------------------------+-----------
+                        3 | t
+(1 row)
+
+
+==============================================================
+7. RLS surface — no write grants, select scoped to the warehouse
+==============================================================
+          table_name          | grants 
+------------------------------+--------
+ simulation_command_schedules | SELECT
+ simulation_profiles          | SELECT
+ simulation_scenario_runs     | SELECT
+ simulation_scenarios         | SELECT
+(4 rows)
+
+          tablename           |             policyname              |  cmd   
+------------------------------+-------------------------------------+--------
+ simulation_command_schedules | simulation_command_schedules_select | SELECT
+ simulation_profiles          | simulation_profiles_select          | SELECT
+ simulation_scenario_runs     | simulation_scenario_runs_select     | SELECT
+ simulation_scenarios         | simulation_scenarios_select         | SELECT
+(4 rows)
+
+-- tenant B sees none of tenant A's simulation rows
+ act 
+-----
+ 
+(1 row)
+
+SET
+ profiles | schedules | scenarios | runs 
+----------+-----------+-----------+------
+        0 |         0 |         0 |    0
+(1 row)
+
+RESET
+
+==============================================================
+8. Audit trail (spec: 감사 추적)
+==============================================================
+              command              |         entity_type         | count 
+-----------------------------------+-----------------------------+-------
+ wms_advance_simulated_command     | simulation_command_schedule |     6
+ wms_create_simulation_scenario    | simulation_scenario         |     1
+ wms_plan_simulated_command        | simulation_command_schedule |     3
+ wms_register_simulation_profile   | simulation_profile          |     3
+ wms_run_simulation_scenario       | simulation_scenario_run     |     2
+ wms_set_equipment_simulation_mode | equipment                   |     3
+ wms_update_simulation_profile     | simulation_profile          |     2
+(7 rows)
+
+-- before/after are populated for a profile update
+ before_failure_rate | after_failure_rate 
+---------------------+--------------------
+ 0                   | 0
+(1 row)
+
+
+==============================================================
+DONE
+==============================================================

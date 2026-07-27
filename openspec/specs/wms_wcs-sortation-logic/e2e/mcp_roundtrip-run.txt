@@ -1,0 +1,260 @@
+fixture: MCP-SORT-9AB66C (profiled) / MCP-BARE-9AB66C (no profile) in ZONE-MCP-9AB
+TOOLS: ['cancel_equipment_command', 'cancel_work_order', 'confirm_po', 'create_rfq', 'create_sortation_profile', 'create_work_order', 'dispatch_equipment_command', 'get_availability', 'get_equipment_status', 'get_sortation_profile', 'get_work_order_status', 'inspect', 'open_dispatch_wave', 'putaway', 'raise_equipment_fault', 'receive', 'register_arrival', 'register_equipment', 'release_dispatch_wave', 'report_command_result', 'report_equipment_status', 'request_approval', 'resolve_equipment_fault', 'retry_work_order_dispatch', 'scrap', 'update_sortation_profile']
+
+### get_sortation_profile (warehouse)
+{
+  "result": "ok",
+  "document": {
+    "count": 2,
+    "items": [
+      {
+        "profile": null,
+        "zone_code": "ZONE-MCP-9AB",
+        "has_profile": false,
+        "open_faults": [],
+        "equipment_id": "e1bca359-87ed-47c3-8467-0f84536d78c2",
+        "last_outcome": null,
+        "equipment_code": "MCP-BARE-9AB66C",
+        "equipment_type": "SORTER",
+        "equipment_status": "IDLE",
+        "equipment_version": 2,
+        "active_sortation_commands": []
+      },
+      {
+        "profile": {
+          "status": "ACTIVE",
+          "version": 1,
+          "profile_id": "3faebfdb-72a2-43c9-90b0-dac39550a4c2",
+          "speed_mode": "FIXED",
+          "speed_unit": "MPS",
+          "updated_at": "2026-07-27T03:22:19.426857+00:00",
+          "max_speed_value": 2.0,
+          "min_speed_value": 0.5,
+          "min_carton_gap_mm": 150,
+          "sensor_detection_window_ms": 80
+        },
+        "zone_code": "ZONE-MCP-9AB",
+        "has_profile": true,
+        "open_faults": [],
+        "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+        "last_outcome": null,
+        "equipment_code": "MCP-SORT-9AB66C",
+        "equipment_type": "SORTER",
+        "equipment_status": "IDLE",
+        "equipment_version": 2,
+        "active_sortation_commands": []
+      }
+    ],
+    "result": "ok",
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id
+
+### create_sortation_profile as PROCESS_AGENT (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot manage sortation profiles', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### update_sortation_profile as PROCESS_AGENT (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot manage sortation profiles', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### create_sortation_profile dry_run
+{
+  "result": "dry_run",
+  "would_call": "wms_create_sortation_profile",
+  "input": {
+    "equipment_id": "e1bca359-87ed-47c3-8467-0f84536d78c2",
+    "min_carton_gap_mm": 120,
+    "speed_mode": "FIXED",
+    "min_speed_value": 0.4,
+    "max_speed_value": 1.5,
+    "speed_unit": "MPS",
+    "sensor_detection_window_ms": 60
+  }
+}
+
+### dispatch_equipment_command DIVERT
+{
+  "result": "ok",
+  "document_id": "0cb430ed-0433-4620-8fa6-c22212088b1d",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### DIVERT without item_identifier (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: DIVERT payload requires item_identifier', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### DIVERT on a sorter with no profile (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: equipment MCP-BARE-9AB66C has no sortation profile — register one before dispatching DIVERT', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### dispatch_equipment_command SET_SPEED (in range)
+{
+  "result": "ok",
+  "document_id": "0d7c1377-d9b8-4bd0-ba5a-e72770993939",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### SET_SPEED above the profile max (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: speed_value 3.5 is outside the profile range 0.5..2.0 MPS for MCP-SORT-9AB66C', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### report_command_result COMPLETED / outcome=SUCCESS
+{
+  "result": "ok",
+  "document_id": "0cb430ed-0433-4620-8fa6-c22212088b1d",
+  "status": "COMPLETED",
+  "version": 2,
+  "links": {
+    "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+### dispatch_equipment_command DIVERT (will jam)
+{
+  "result": "ok",
+  "document_id": "b12ec43f-0a1d-4eb4-affd-9dd6626c5f04",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### outcome=JAM reported as COMPLETED (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: outcome=JAM requires command_status=FAILED', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### report_command_result FAILED / outcome=JAM
+{
+  "result": "ok",
+  "document_id": "b12ec43f-0a1d-4eb4-affd-9dd6626c5f04",
+  "status": "FAILED",
+  "version": 2,
+  "links": {
+    "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+    "equipment_status": "FAULT",
+    "equipment_version": 4
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+auto escalation: equipment -> FAULT | fault: SORTATION_JAM
+
+### get_sortation_profile after the jam
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "items": [
+      {
+        "profile": {
+          "status": "ACTIVE",
+          "version": 1,
+          "profile_id": "3faebfdb-72a2-43c9-90b0-dac39550a4c2",
+          "speed_mode": "FIXED",
+          "speed_unit": "MPS",
+          "updated_at": "2026-07-27T03:22:19.426857+00:00",
+          "max_speed_value": 2.0,
+          "min_speed_value": 0.5,
+          "min_carton_gap_mm": 150,
+          "sensor_detection_window_ms": 80
+        },
+        "zone_code": "ZONE-MCP-9AB",
+        "has_profile": true,
+        "open_faults": [
+          {
+            "version": 1,
+            "fault_id": "bdd0b015-6fd2-4797-b65b-cf8012318283",
+            "severity": "CRITICAL",
+            "fault_code": "SORTATION_JAM"
+          }
+        ],
+        "equipment_id": "33b10d8b-ead7-4e3d-b634-a8a6c0ceaca1",
+        "last_outcome": "JAM",
+        "equipment_code": "MCP-SORT-9AB66C",
+        "equipment_type": "SORTER",
+        "equipment_status": "FAULT",
+        "equipment_version": 4,
+        "active_sortation_commands": []
+      }
+    ],
+    "result": "ok",
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a"
+  }
+}
+
+### resolve_equipment_fault as PROCESS_AGENT (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot resolve equipment faults', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_sortation_profile for tenant B (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+All MCP round-trip assertions passed.

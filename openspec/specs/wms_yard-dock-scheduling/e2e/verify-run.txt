@@ -1,0 +1,454 @@
+
+==============================================================
+A. Dock registry — register, duplicate code, role/scope guards
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+ dock1_status | dock2_version 
+--------------+---------------
+ AVAILABLE    | 1
+(1 row)
+
+-- expected: AVAILABLE | 1   (spec: "등록 직후 도크 상태는 AVAILABLE")
+
+-- A2 duplicate code in the same warehouse -> INVALID
+                                             dup_code                                              
+---------------------------------------------------------------------------------------------------
+ INVALID: dock code DOCK-V-01 already registered in warehouse 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+
+-- A3 INBOUND_OPERATOR has no registry rights -> FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+              wrong_role               
+---------------------------------------
+ FORBIDDEN: role cannot register docks
+(1 row)
+
+
+-- A4 tenant A admin registering into tenant B warehouse -> FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+                              cross_tenant                              
+------------------------------------------------------------------------
+ FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+
+==============================================================
+B. Appointment creation guards
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- B1 happy path: INBOUND appointment against a real PO
+ appt_status 
+-------------
+ SCHEDULED
+(1 row)
+
+-- expected: SCHEDULED
+
+-- B2 inverted window -> INVALID   B3 INBOUND without po_id -> INVALID
+ inverted_window | inbound_without_po 
+-----------------+--------------------
+ INVALID         | INVALID
+(1 row)
+
+
+-- B4 PO from another warehouse -> INVALID
+                                                           foreign_po                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ INVALID: po 40000000-0000-0000-0000-0000000000b1 does not belong to the warehouse of dock 80d553c5-d2f2-4091-9e92-198417c68b22
+(1 row)
+
+
+-- B5 CLOSED dock cannot be booked
+ act 
+-----
+ 
+(1 row)
+
+ dock2_now 
+-----------
+ CLOSED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                                    closed_dock                                    
+-----------------------------------------------------------------------------------
+ INVALID: dock 80d553c5-d2f2-4091-9e92-198417c68b22 is CLOSED and cannot be booked
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ dock2_reopened 
+----------------
+ AVAILABLE
+(1 row)
+
+
+-- B6 OUTBOUND appointment (D3-AMENDED: implemented, not deferred)
+--    po_id must be null; linked_entity_type=outbound_order is scope-checked
+INSERT 0 1
+ act 
+-----
+ 
+(1 row)
+
+ outbound_ok | outbound_with_po | unknown_outbound_order 
+-------------+------------------+------------------------
+ OUTBOUND    | INVALID          | INVALID
+(1 row)
+
+-- expected: OUTBOUND | INVALID | INVALID
+
+==============================================================
+C. Double booking (D1) — the exclusion constraint
+==============================================================
+-- C1 overlapping window on the same dock -> CONFLICT (via the RPC)
+                                                         overlap                                                         
+-------------------------------------------------------------------------------------------------------------------------
+ CONFLICT: dock DOCK-V-01 already has an active appointment overlapping [2026-08-01 09:30:00+00, 2026-08-01 10:30:00+00)
+(1 row)
+
+
+-- C2 abutting window 10:00-11:00 is NOT an overlap (half-open range)
+ abutting  
+-----------
+ SCHEDULED
+(1 row)
+
+-- expected: SCHEDULED
+
+-- C3 the DB refuses the overlap even when the RPC is bypassed entirely
+--    (superuser INSERT straight into the table — storage-engine level)
+                                    raw_insert_blocked                                     
+-------------------------------------------------------------------------------------------
+ conflicting key value violates exclusion constraint "dock_appointments_no_double_booking"
+(1 row)
+
+-- expected: conflicting key value violates exclusion constraint ...
+
+-- C4 the same INSERT succeeds once the sitting appointment is CANCELLED,
+--    because the exclusion predicate only covers SCHEDULED/CHECKED_IN/AT_DOCK
+ cancelled 
+-----------
+ CANCELLED
+(1 row)
+
+ rebooked_same_slot 
+--------------------
+ SCHEDULED
+(1 row)
+
+-- expected: CANCELLED | SCHEDULED
+
+==============================================================
+D. Vehicle lifecycle + derived dock status (D4)
+==============================================================
+-- D1 SCHEDULED -> CHECKED_IN leaves the dock alone
+    appt    | dock_after_checkin 
+------------+--------------------
+ CHECKED_IN | AVAILABLE
+(1 row)
+
+-- expected: CHECKED_IN | AVAILABLE
+
+-- D2 CHECKED_IN -> AT_DOCK takes the dock to OCCUPIED
+ dock_status 
+-------------
+ OCCUPIED
+(1 row)
+
+ appt_status 
+-------------
+ AT_DOCK
+(1 row)
+
+-- expected: OCCUPIED | AT_DOCK
+
+-- D3 an OCCUPIED dock cannot be CLOSED, and cannot take a second truck
+ act 
+-----
+ 
+(1 row)
+
+ close_occupied 
+----------------
+ INVALID
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ second_checked_in 
+-------------------
+ CHECKED_IN
+(1 row)
+
+ dock_already_occupied 
+-----------------------
+ INVALID
+(1 row)
+
+-- expected: INVALID | CHECKED_IN | INVALID
+
+-- D4 out-of-order transitions are refused
+ depart_before_docking | recheckin_at_dock | cancel_at_dock 
+-----------------------+-------------------+----------------
+ INVALID               | INVALID           | INVALID
+(1 row)
+
+-- expected: INVALID | INVALID | INVALID
+
+-- D5 expected_version mismatch -> CONFLICT
+ stale_version 
+---------------
+ CONFLICT
+(1 row)
+
+
+-- D6 AT_DOCK -> DEPARTED releases the dock back to AVAILABLE
+ dock_status 
+-------------
+ AVAILABLE
+(1 row)
+
+ appt_status 
+-------------
+ DEPARTED
+(1 row)
+
+-- expected: AVAILABLE | DEPARTED
+
+-- D7 PROCESS_AGENT may book and cancel, but may NOT move a physical truck (D5)
+ act 
+-----
+ 
+(1 row)
+
+ agent_can_schedule 
+--------------------
+ SCHEDULED
+(1 row)
+
+ agent_cannot_check_in | agent_cannot_dock | agent_cannot_register 
+-----------------------+-------------------+-----------------------
+ FORBIDDEN             | FORBIDDEN         | FORBIDDEN
+(1 row)
+
+-- expected: SCHEDULED | FORBIDDEN | FORBIDDEN | FORBIDDEN
+
+-- D8 ... but the agent CAN cancel what it booked
+ agent_can_cancel 
+------------------
+ CANCELLED
+(1 row)
+
+-- expected: CANCELLED
+
+==============================================================
+E. Idempotency
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+              first_call              |            replayed_call             
+--------------------------------------+--------------------------------------
+ 700189f7-8f66-44a9-866d-b5d3cc1bc0ec | 700189f7-8f66-44a9-866d-b5d3cc1bc0ec
+(1 row)
+
+ rows_created 
+--------------
+            1
+(1 row)
+
+-- expected: the same uuid twice, and exactly 1 row (the replay did not
+   re-insert, and it did not trip the exclusion constraint either)
+
+==============================================================
+F. Read RPC + RLS / cross-tenant
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+   dock    | dock_status | appts 
+-----------+-------------+-------
+ DOCK-V-01 | AVAILABLE   |     3
+ DOCK-V-02 | AVAILABLE   |     3
+(2 rows)
+
+
+-- F2 the window filter really filters
+ day1_only | empty_day 
+-----------+-----------
+ 4         | 0
+(1 row)
+
+
+-- F3 tenant A reading tenant B's warehouse -> FORBIDDEN
+                           cross_tenant_read                            
+------------------------------------------------------------------------
+ FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+
+-- F4 RLS itself: tenant B admin sees zero tenant A rows.
+--    psql connects as the postgres superuser, which BYPASSES RLS, so the
+--    role really has to be dropped to `authenticated` for this to mean
+--    anything. (Everything above tests the RPC-level guard instead.)
+ act 
+-----
+ 
+(1 row)
+
+BEGIN
+SET
+ b_sees_a_docks | b_sees_a_appointments 
+----------------+-----------------------
+              0 |                     0
+(1 row)
+
+ROLLBACK
+-- expected: 0 | 0
+
+-- F4b the same query as tenant A's inbound operator DOES see them
+ act 
+-----
+ 
+(1 row)
+
+BEGIN
+SET
+ a_sees_a_docks | a_sees_a_appointments 
+----------------+-----------------------
+              2 | t
+(1 row)
+
+ROLLBACK
+-- expected: 2 | t
+
+-- F4c a direct write attempt as `authenticated` is denied by RLS
+--    (no INSERT policy exists — every write must go through an RPC)
+BEGIN
+SET
+           direct_insert           
+-----------------------------------
+ permission denied for table docks
+(1 row)
+
+        direct_update_rows         
+-----------------------------------
+ permission denied for table docks
+(1 row)
+
+ROLLBACK
+-- expected: a permission-denied error, then 0 rows updated
+
+-- F5 tenant B admin cannot book a tenant A dock -> FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+                             cross_tenant_write                              
+-----------------------------------------------------------------------------
+ FORBIDDEN: no warehouse scope for dock 0c4cb354-5ee0-4013-92b9-92b2231464e4
+(1 row)
+
+
+-- F6 no direct DML privileges leaked to authenticated/anon
+    grantee    | privilege_type |    table_name     
+---------------+----------------+-------------------
+ authenticated | SELECT         | dock_appointments
+ authenticated | SELECT         | docks
+(2 rows)
+
+-- expected: SELECT rows only (no INSERT/UPDATE/DELETE)
+
+==============================================================
+G. Independence from wms_register_arrival (D2)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- G1 a PO with NO appointment at all still transitions EXPECTED -> ARRIVED
+ no_appointment_po 
+-------------------
+ ARRIVED
+(1 row)
+
+
+-- G2 a PO whose appointment is merely SCHEDULED is not blocked either
+ scheduled_appointment_po 
+--------------------------
+ ARRIVED
+(1 row)
+
+-- expected: ARRIVED | ARRIVED
+
+-- G3 register_arrival wrote nothing into this contract's tables
+ leaked_audit | unexpected_mutations 
+--------------+----------------------
+            0 |                    0
+(1 row)
+
+-- expected: 0 | 0
+
+==============================================================
+H. Audit coverage — all 7 write RPCs, with before/after
+==============================================================
+            command            |   entity_type    | events | with_before | with_after | with_correlation 
+-------------------------------+------------------+--------+-------------+------------+------------------
+ wms_cancel_dock_appointment   | dock_appointment |      6 |           6 |          6 |                6
+ wms_check_in_vehicle          | dock_appointment |      8 |           8 |          8 |                4
+ wms_depart_vehicle            | dock             |      4 |           4 |          4 |                4
+ wms_depart_vehicle            | dock_appointment |      4 |           4 |          4 |                4
+ wms_dock_vehicle              | dock             |      4 |           4 |          4 |                4
+ wms_dock_vehicle              | dock_appointment |      4 |           4 |          4 |                4
+ wms_register_dock             | dock             |      8 |           0 |          8 |                8
+ wms_schedule_dock_appointment | dock_appointment |     26 |           0 |         26 |               26
+ wms_set_dock_status           | dock             |      8 |           8 |          8 |                0
+(9 rows)
+
+
+-- H2 the docking event carries CHECKED_IN -> AT_DOCK (spec.md scenario)
+ before_status | after_status 
+---------------+--------------
+ CHECKED_IN    | AT_DOCK
+(1 row)
+
+-- expected: CHECKED_IN | AT_DOCK
+
+==============================================================
+I. Cleanup
+==============================================================
+fixtures removed.

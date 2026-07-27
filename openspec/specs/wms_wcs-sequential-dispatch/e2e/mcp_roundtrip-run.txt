@@ -1,0 +1,511 @@
+fixture: MCP-SEQ-DBC63F-CELL (ROBOT_CELL) / MCP-SEQ-DBC63F-AGV (AGV) in ZONE-MCP-SEQ-DBC, wave 6f12a16a
+TOOLS: ['assign_dispatch_sequence', 'cancel_dispatch_sequence', 'cancel_equipment_command', 'cancel_work_order', 'clear_equipment_routing_exclusion', 'confirm_po', 'create_outbound_order', 'create_rfq', 'create_sortation_profile', 'create_work_order', 'dispatch_equipment_command', 'dispatch_palletize_command', 'exclude_equipment_from_routing', 'get_availability', 'get_dispatch_sequence_status', 'get_equipment_routing_status', 'get_equipment_status', 'get_pallet_manifest', 'get_sortation_profile', 'get_work_order_status', 'inspect', 'open_dispatch_wave', 'putaway', 'raise_equipment_fault', 'receive', 'register_arrival', 'register_equipment', 'register_wcs_routing_policy', 'release_dispatch_wave', 'report_command_result', 'report_equipment_status', 'request_approval', 'resolve_equipment_fault', 'retry_work_order_dispatch', 'scrap', 'update_sortation_profile', 'update_wcs_routing_policy']
+
+### create_outbound_order #1 (STORE-042, 4.2kg)
+{
+  "result": "ok",
+  "document_id": "17e190ad-6648-45a0-abf3-e82667737370",
+  "status": "OPEN",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "outbound_order_id": "17e190ad-6648-45a0-abf3-e82667737370",
+    "store_code": "STORE-042"
+  },
+  "next_actions": [
+    "assign_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### create_outbound_order #2 (STORE-042, 6.0kg)
+{
+  "result": "ok",
+  "document_id": "c053afea-a826-4723-8d1f-78ee37eb58ed",
+  "status": "OPEN",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "outbound_order_id": "c053afea-a826-4723-8d1f-78ee37eb58ed",
+    "store_code": "STORE-042"
+  },
+  "next_actions": [
+    "assign_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### create_outbound_order (qty=0)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: qty must be greater than 0', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### create_outbound_order (dry_run)
+{
+  "result": "dry_run",
+  "would_call": "wms_create_outbound_order",
+  "input": {
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a",
+    "store_code": "STORE-DRY",
+    "product_id": "0bc4655d-6039-4fbe-ae2a-614da224dc92",
+    "qty": 1.0
+  }
+}
+
+### assign_dispatch_sequence #1 (position 1)
+{
+  "result": "ok",
+  "document_id": "d7ad0316-49cf-4a35-886b-073ae8df5333",
+  "status": "QUEUED",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "dispatch_sequence_id": "d7ad0316-49cf-4a35-886b-073ae8df5333",
+    "outbound_order_id": "17e190ad-6648-45a0-abf3-e82667737370",
+    "outbound_order_status": "SEQUENCED",
+    "outbound_order_version": 2,
+    "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+    "target_pallet_code": "PLT-MCP-DBC63F"
+  },
+  "next_actions": [
+    "dispatch_palletize_command",
+    "cancel_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### assign_dispatch_sequence #2 (position 2, same pallet)
+{
+  "result": "ok",
+  "document_id": "012eca05-d369-4b49-8cb6-37f1fdf00d94",
+  "status": "QUEUED",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "dispatch_sequence_id": "012eca05-d369-4b49-8cb6-37f1fdf00d94",
+    "outbound_order_id": "c053afea-a826-4723-8d1f-78ee37eb58ed",
+    "outbound_order_status": "SEQUENCED",
+    "outbound_order_version": 2,
+    "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+    "target_pallet_code": "PLT-MCP-DBC63F"
+  },
+  "next_actions": [
+    "dispatch_palletize_command",
+    "cancel_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### assign_dispatch_sequence (duplicate position)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: outbound order 17e190ad-6648-45a0-abf3-e82667737370 is not OPEN (status=SEQUENCED)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### assign_dispatch_sequence (stale version)
+{
+  "result": "error",
+  "error_kind": "CONFLICT",
+  "http_status_equivalent": 409,
+  "message": "{'message': 'CONFLICT: expected version 1 but found 2', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### dispatch_palletize_command (AGV, wrong type)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: PALLETIZE is only valid for ROBOT_CELL equipment (MCP-SEQ-DBC63F-AGV is AGV)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### dispatch_palletize_command (max_weight_kg=5 vs declared 10.2)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: declared weight 10.2 kg exceeds max_weight_kg 5.0 for pallet PLT-MCP-DBC63F', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### dispatch_palletize_command (happy path)
+{
+  "result": "ok",
+  "document_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+  "status": "PENDING",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "equipment_command_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+    "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+    "equipment_code": "MCP-SEQ-DBC63F-CELL",
+    "equipment_version": 3,
+    "target_pallet_code": "PLT-MCP-DBC63F",
+    "item_count": 2,
+    "declared_total_weight_kg": 10.2,
+    "declared_total_volume_l": 8.1,
+    "dispatch_sequence_ids": [
+      "d7ad0316-49cf-4a35-886b-073ae8df5333",
+      "012eca05-d369-4b49-8cb6-37f1fdf00d94"
+    ]
+  },
+  "next_actions": [
+    "get_pallet_manifest",
+    "get_dispatch_sequence_status",
+    "cancel_dispatch_sequence"
+  ]
+}
+
+### dispatch_palletize_command (different pallet, cell busy)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: robot cell MCP-SEQ-DBC63F-CELL is RUNNING on another pallet — one cell builds one pallet at a time', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_pallet_manifest (before any result)
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "result": "ok",
+    "pallets": [
+      {
+        "items": [],
+        "outcome": null,
+        "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+        "reported": false,
+        "reported_at": null,
+        "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+        "max_volume_l": 500.0,
+        "max_weight_kg": 250.0,
+        "command_status": "PENDING",
+        "equipment_code": "MCP-SEQ-DBC63F-CELL",
+        "planned_item_count": 2,
+        "target_pallet_code": "PLT-MCP-DBC63F",
+        "equipment_command_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+        "total_actual_volume_l": null,
+        "total_actual_weight_kg": null,
+        "declared_total_volume_l": 8.1,
+        "declared_total_weight_kg": 10.2
+      }
+    ],
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a"
+  }
+}
+
+### report_command_result (IN_PROGRESS, WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+  "status": "IN_PROGRESS",
+  "version": 2,
+  "links": {
+    "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result"
+  ]
+}
+
+### report_command_result (COMPLETED + outcome=OVERWEIGHT)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: outcome=OVERWEIGHT requires command_status=FAILED', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### report_command_result (PARTIAL: one LOADED, one SKIPPED)
+{
+  "result": "ok",
+  "document_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+  "status": "COMPLETED",
+  "version": 3,
+  "links": {
+    "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+    "equipment_status": "IDLE",
+    "equipment_version": 4
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+### get_dispatch_sequence_status (after the report)
+{
+  "result": "ok",
+  "document": {
+    "count": 2,
+    "waves": [
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+        "created_at": "2026-07-27T05:00:05.386454+00:00",
+        "queued_count": 0,
+        "sequence_count": 2
+      },
+      {
+        "status": "RELEASED",
+        "version": 2,
+        "wave_id": "922d46f5-90cd-4d9f-a538-ca47d4a744c5",
+        "created_at": "2026-07-27T05:00:04.694117+00:00",
+        "queued_count": 0,
+        "sequence_count": 0
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",
+        "created_at": "2026-07-27T05:00:04.693376+00:00",
+        "queued_count": 0,
+        "sequence_count": 5
+      }
+    ],
+    "result": "ok",
+    "pallets": [
+      {
+        "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+        "failed_count": 1,
+        "queued_count": 0,
+        "completed_count": 1,
+        "dispatched_count": 0,
+        "declared_volume_l": 8.1,
+        "declared_weight_kg": 10.2,
+        "target_pallet_code": "PLT-MCP-DBC63F",
+        "equipment_command_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d"
+      }
+    ],
+    "sequences": [
+      {
+        "qty": 10.0,
+        "sku": "SKU-A-001",
+        "reason": null,
+        "status": "COMPLETED",
+        "version": 3,
+        "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+        "store_code": "STORE-042",
+        "wave_status": "OPEN",
+        "order_number": "MCP-DBC63F-1",
+        "product_name": "Corrugated Box (Medium)",
+        "load_position": 1,
+        "declared_volume_l": 3.1,
+        "equipment_command": {
+          "status": "COMPLETED",
+          "version": 3,
+          "command_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+          "command_type": "PALLETIZE",
+          "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+          "equipment_code": "MCP-SEQ-DBC63F-CELL",
+          "equipment_status": "IDLE"
+        },
+        "outbound_order_id": "17e190ad-6648-45a0-abf3-e82667737370",
+        "sequence_position": 1,
+        "declared_weight_kg": 4.2,
+        "target_pallet_code": "PLT-MCP-DBC63F",
+        "dispatch_
+
+### get_pallet_manifest (after the report)
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "result": "ok",
+    "pallets": [
+      {
+        "items": [
+          {
+            "qty": 10.0,
+            "sku": "SKU-A-001",
+            "reason": null,
+            "store_code": "STORE-042",
+            "item_outcome": "LOADED",
+            "order_number": "MCP-DBC63F-1",
+            "load_position": 1,
+            "sequence_status": "COMPLETED",
+            "declared_volume_l": 3.1,
+            "outbound_order_id": "17e190ad-6648-45a0-abf3-e82667737370",
+            "sequence_position": 1,
+            "declared_weight_kg": 4.2,
+            "dispatch_sequence_id": "d7ad0316-49cf-4a35-886b-073ae8df5333"
+          },
+          {
+            "qty": 4.0,
+            "sku": "SKU-A-002",
+            "reason": "OVERWEIGHT",
+            "store_code": "STORE-042",
+            "item_outcome": "SKIPPED",
+            "order_number": "MCP-DBC63F-2",
+            "load_position": null,
+            "sequence_status": "FAILED",
+            "declared_volume_l": 5.0,
+            "outbound_order_id": "c053afea-a826-4723-8d1f-78ee37eb58ed",
+            "sequence_position": 2,
+            "declared_weight_kg": 6.0,
+            "dispatch_sequence_id": "012eca05-d369-4b49-8cb6-37f1fdf00d94"
+          }
+        ],
+        "outcome": "PARTIAL",
+        "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+        "reported": true,
+        "reported_at": "2026-07-27T05:00:07.283506+00:00",
+        "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+        "max_volume_l": 500.0,
+        "max_weight_kg": 250.0,
+        "command_status": "COMPLETED",
+        "equipment_code": "MCP-SEQ-DBC63F-CELL",
+        "planned_item_count": 2,
+        "target_pallet_code": "PLT-MCP-DBC63F",
+        "equipment_command_id": "439fc3b8-f23c-42a0-9990-ae5f8989bc9d",
+        "total_actual_volume_l": null,
+        "total_actual_weight_kg": 4.4,
+        "declared_total_volume_l": 8.1,
+        "declared_total_weight_kg": 10.2
+      }
+    ],
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a"
+  }
+}
+
+### dispatch_equipment_command (WRAP, no dedicated tool)
+{
+  "result": "ok",
+  "document_id": "d11cae24-abbf-4bb8-aa3f-d77a68800648",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+    "equipment_status": "RUNNING",
+    "equipment_version": 5
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### dispatch_equipment_command (WRAP without wrap_program)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: WRAP payload requires wrap_program STANDARD or HEAVY', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### report_command_result (WRAP SUCCESS)
+{
+  "result": "ok",
+  "document_id": "d11cae24-abbf-4bb8-aa3f-d77a68800648",
+  "status": "COMPLETED",
+  "version": 2,
+  "links": {
+    "equipment_id": "0b628422-a32e-47f6-abfa-4800b5385ddc",
+    "equipment_status": "IDLE",
+    "equipment_version": 6
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+### create_outbound_order #3 (for the cancel path)
+{
+  "result": "ok",
+  "document_id": "316115f2-a7db-4d6d-8c09-d1fd605ce494",
+  "status": "OPEN",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "outbound_order_id": "316115f2-a7db-4d6d-8c09-d1fd605ce494",
+    "store_code": "STORE-777"
+  },
+  "next_actions": [
+    "assign_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### assign_dispatch_sequence #3
+{
+  "result": "ok",
+  "document_id": "e09456b6-9c44-4bae-a888-5c641c751aee",
+  "status": "QUEUED",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "dispatch_sequence_id": "e09456b6-9c44-4bae-a888-5c641c751aee",
+    "outbound_order_id": "316115f2-a7db-4d6d-8c09-d1fd605ce494",
+    "outbound_order_status": "SEQUENCED",
+    "outbound_order_version": 2,
+    "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+    "target_pallet_code": "PLT-MCP-DBC63F-C"
+  },
+  "next_actions": [
+    "dispatch_palletize_command",
+    "cancel_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### cancel_dispatch_sequence (QUEUED)
+{
+  "result": "ok",
+  "document_id": "e09456b6-9c44-4bae-a888-5c641c751aee",
+  "status": "CANCELLED",
+  "version": 2,
+  "warnings": [],
+  "links": {
+    "dispatch_sequence_id": "e09456b6-9c44-4bae-a888-5c641c751aee",
+    "outbound_order_id": "316115f2-a7db-4d6d-8c09-d1fd605ce494",
+    "cancelled_equipment_command_id": null,
+    "cancelled_sibling_sequence_ids": []
+  },
+  "next_actions": [
+    "assign_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### assign_dispatch_sequence (reuse position 5 after cancel)
+{
+  "result": "ok",
+  "document_id": "e3b925ac-fb43-47a4-a4e2-d658a9c47f04",
+  "status": "QUEUED",
+  "version": 1,
+  "warnings": [],
+  "links": {
+    "dispatch_sequence_id": "e3b925ac-fb43-47a4-a4e2-d658a9c47f04",
+    "outbound_order_id": "316115f2-a7db-4d6d-8c09-d1fd605ce494",
+    "outbound_order_status": "SEQUENCED",
+    "outbound_order_version": 4,
+    "wave_id": "6f12a16a-9f93-4851-a5ad-b6289c6d3779",
+    "target_pallet_code": "PLT-MCP-DBC63F-C"
+  },
+  "next_actions": [
+    "dispatch_palletize_command",
+    "cancel_dispatch_sequence",
+    "get_dispatch_sequence_status"
+  ]
+}
+
+### cancel_dispatch_sequence (already cancelled)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: dispatch sequence e09456b6-9c44-4bae-a888-5c641c751aee is already terminal (status=CANCELLED)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### audit commands
+wms_assign_dispatch_sequence,wms_cancel_dispatch_sequence,wms_create_outbound_order,wms_dispatch_palletize_command,wms_propagate_palletize_result
+
+ALL MCP ROUND-TRIP ASSERTIONS PASSED

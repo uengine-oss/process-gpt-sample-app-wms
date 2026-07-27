@@ -1,0 +1,579 @@
+
+============================================================
+A. 대상 확인 — 계약이 얹히는 기존 자산
+============================================================
+ audit_events_exists | agent_decisions_exists | audit_event_columns | audit_event_policies 
+---------------------+------------------------+---------------------+----------------------
+ t                   | t                      |                  10 |                    1
+(1 row)
+
+       proname        | returns | volatility | security_definer 
+----------------------+---------+------------+------------------
+ describe_audit_event | text    | immutable  | f
+ wms_export_audit_log | jsonb   | volatile   | t
+ wms_query_audit_log  | jsonb   | stable     | t
+(3 rows)
+
+     policyname      |  cmd   |                                  qual                                   
+---------------------+--------+-------------------------------------------------------------------------
+ audit_events_select | SELECT | (tenant_id IN ( SELECT wms.current_tenant_ids() AS current_tenant_ids))
+(1 row)
+
+
+============================================================
+B. wms.describe_audit_event — 결정론적 한국어 요약
+============================================================
+
+-- B1. 실제로 쓰이는 65개 command 전부에 전용 템플릿이 있는가
+--     (fallback 문장과 다르면 전용 분기가 존재한다는 뜻)
+ shipped_commands | with_dedicated_template | fell_through_to_fallback | null_or_blank 
+------------------+-------------------------+--------------------------+---------------
+               65 |                      65 |                        0 |             0
+(1 row)
+
+
+-- B1b. 전용 템플릿이 없는 command 목록 (비어 있어야 한다)
+ command 
+---------
+(0 rows)
+
+
+-- B2. 알려지지 않은 명령 → 범용 폴백 (오류도 NULL도 아니다)
+                        fallback_unknown_entity                        
+-----------------------------------------------------------------------
+ future_entity 엔티티에 대해 wms_new_future_command 명령이 실행되었다.
+(1 row)
+
+                      fallback_known_entity                       
+------------------------------------------------------------------
+ 발주(PO) 엔티티에 대해 wms_new_future_command 명령이 실행되었다.
+(1 row)
+
+                    fallback_all_null                    
+---------------------------------------------------------
+ 알 수 없는 엔티티에 대해 (이름 없는) 명령이 실행되었다.
+(1 row)
+
+
+-- B3. before가 NULL이고 after만 있는 전형적 생성 이벤트
+                        create_rfq                        
+----------------------------------------------------------
+ 구매 요청(RFQ)이 생성되었다 — 수량 120, 상태 TO_APPROVE.
+(1 row)
+
+--     after의 일부 필드가 아예 없어도 문장이 깨지지 않는다
+            create_rfq_empty_after             
+-----------------------------------------------
+ 구매 요청(RFQ)이 생성되었다 — 수량 —, 상태 —.
+(1 row)
+
+                      receive_partial                       
+------------------------------------------------------------
+ 입고 수량이 확정되었다 — 수령 — / 예정 —, 상태 QC_PENDING.
+(1 row)
+
+
+-- B4. before → after 전이가 문장에 드러난다
+                             dock_status_change                              
+-----------------------------------------------------------------------------
+ 도크 DOCK-01의 상태가 변경되었다 — AVAILABLE → MAINTENANCE, 사유 정기 점검.
+(1 row)
+
+
+-- B5. 선택 절은 값이 없으면 아예 렌더링되지 않는다 (", 사유 —" 같은 찌꺼기 금지)
+                     no_reason                     |                               with_reason                                
+---------------------------------------------------+--------------------------------------------------------------------------
+ 업무 오더가 취소되었다 — 상태 QUEUED → CANCELLED. | 업무 오더가 취소되었다 — 상태 QUEUED → CANCELLED, 사유 상위 웨이브 취소.
+(1 row)
+
+
+-- B6. 같은 command가 두 엔티티에 두 행을 남기는 경우 문장이 서로 다르다
+                                    as_dock                                     
+--------------------------------------------------------------------------------
+ 도크 DOCK-01에 차량이 접안해 도크가 점유 상태가 되었다 — AVAILABLE → OCCUPIED.
+(1 row)
+
+                            as_appointment                            
+----------------------------------------------------------------------
+ 예약 차량 77바1234이(가) 도크에 접안했다 — 상태 CHECKED_IN → DOCKED.
+(1 row)
+
+
+-- B7. 판단 근거가 붙으면 문장 끝에 "(사유: ...)"가 덧붙는다
+                                      with_reasoning                                      
+------------------------------------------------------------------------------------------
+ 설비 명령(MOVE)이 하달되었다 — 상태 DISPATCHED. (사유: 재고 부족으로 대체 설비로 재배치)
+(1 row)
+
+--     공백뿐인 근거는 붙이지 않는다
+                      blank_reasoning                       
+------------------------------------------------------------
+ 입고 수량이 확정되었다 — 수령 — / 예정 —, 상태 QC_PENDING.
+(1 row)
+
+
+-- B8. IMMUTABLE — 같은 입력은 항상 같은 문장
+ deterministic 
+---------------
+ t
+(1 row)
+
+
+============================================================
+C. happy path — 실제 명령이 남긴 감사 이벤트를 감사자가 읽는다
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+                 put                  
+--------------------------------------
+ fa150afb-dde8-4463-95db-645c0e81184b
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ approved 
+----------
+ APPROVED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+  confirmed   
+--------------
+ CONFIRMED_PO
+(1 row)
+
+
+-- C1. 감사자가 이 발주 건의 이력을 조회한다 (최신순, 한국어 요약)
+ act 
+-----
+ 
+(1 row)
+
+           command            |         actor         |                                    summary_ko                                    
+------------------------------+-----------------------+----------------------------------------------------------------------------------
+ wms_confirm_purchase_order   | buyer-a@demo.local    | 발주(PO)가 확정되어 입고 예정이 생성되었다 — 수량 77, 상태 CONFIRMED_PO.
+ wms_submit_purchase_approval | approver-a@demo.local | 발주 승인 심사가 처리되었다 — 상태 APPROVED, 사유 AUDIT-V: 재주문점 미달로 승인.
+ wms_create_rfq               | buyer-a@demo.local    | 구매 요청(RFQ)이 생성되었다 — 수량 77, 상태 TO_APPROVE.
+(3 rows)
+
+
+-- C2. WMS_ADMIN도 같은 조회를 할 수 있다 (역할 슈퍼셋 관례)
+ act 
+-----
+ 
+(1 row)
+
+ admin_total 
+-------------
+ 3
+(1 row)
+
+
+============================================================
+D. 필터 — 기간 / 행위자 / 엔티티 / 명령 / 상관관계 ID
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- D1. command 필터
+ rfq_events 
+------------
+ 1
+(1 row)
+
+-- D2. entity_type 필터
+ po_events | unknown_entity_events 
+-----------+-----------------------
+ 3         | 0
+(1 row)
+
+-- D3. actor 필터
+ by_buyer | by_approver 
+----------+-------------
+ 2        | 1
+(1 row)
+
+-- D4. correlation_id 필터
+ by_correlation 
+----------------
+ 1
+(1 row)
+
+-- D5. 필터 조합 (기간 + entity_type + actor)
+ combined 
+----------
+ 2
+(1 row)
+
+-- D6. 기간 경계는 양끝 포함 (date_to는 inclusive)
+INSERT 0 1
+ from_exactly_on_it | to_exactly_on_it | from_one_second_later 
+--------------------+------------------+-----------------------
+ 1                  | 1                | 0
+(1 row)
+
+
+============================================================
+E. 페이지네이션 — 120건 픽스처로 산수를 검증한다
+============================================================
+INSERT 0 120
+ act 
+-----
+ 
+(1 row)
+
+-- E1. 1페이지 (limit 50, offset 0)
+ row_count | total_count | page_count | has_more 
+-----------+-------------+------------+----------
+ 50        | 120         | 3          | true
+(1 row)
+
+-- E2. 2페이지 (offset 50) — 51~100번째
+ row_count | total_count | has_more | first_row_qty | last_row_qty 
+-----------+-------------+----------+---------------+--------------
+ 50        | 120         | true     | 51            | 100
+(1 row)
+
+-- E3. 마지막 페이지 (offset 100) — 20건, has_more=false
+ row_count | has_more 
+-----------+----------
+ 20        | false
+(1 row)
+
+-- E4. 끝을 넘어선 페이지 — 행은 0이지만 total_count는 살아 있다
+--     (count(*) over()를 쓰지 않은 이유)
+ row_count | total_count | has_more 
+-----------+-------------+----------
+ 0         | 120         | false
+(1 row)
+
+-- E5. 정렬은 최신순 — 첫 행이 가장 최근이다
+ newest_first 
+--------------
+ t
+(1 row)
+
+-- E6. limit / offset 범위 밖은 INVALID
+                    limit_zero                    |                   limit_over_max                   |            negative_offset            
+--------------------------------------------------+----------------------------------------------------+---------------------------------------
+ INVALID: limit must be between 1 and 500 (got 0) | INVALID: limit must be between 1 and 500 (got 501) | INVALID: offset must be >= 0 (got -1)
+(1 row)
+
+-- E7. 뒤집힌 기간도 INVALID
+                reversed_range                
+----------------------------------------------
+ INVALID: date_from must not be after date_to
+(1 row)
+
+
+============================================================
+F. 역할 게이트 (D2) — 감사 표면은 WMS_ADMIN / AUDITOR 전용
+============================================================
+-- F1. 비허용 역할 4종 × 조회 RPC
+ act 
+-----
+ 
+(1 row)
+
+    who    |                                      query_rpc                                       
+-----------+--------------------------------------------------------------------------------------
+ inbound-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+    who    |                                      query_rpc                                       
+-----------+--------------------------------------------------------------------------------------
+ quality-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+   who   |                                      query_rpc                                       
+---------+--------------------------------------------------------------------------------------
+ buyer-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+       who       |                                      query_rpc                                       
+-----------------+--------------------------------------------------------------------------------------
+ process-agent-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+-- F2. 같은 4종 × 내보내기 RPC
+ act 
+-----
+ 
+(1 row)
+
+    who    |                                      export_rpc                                      
+-----------+--------------------------------------------------------------------------------------
+ inbound-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+    who    |                                      export_rpc                                      
+-----------+--------------------------------------------------------------------------------------
+ quality-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+   who   |                                      export_rpc                                      
+---------+--------------------------------------------------------------------------------------
+ buyer-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+       who       |                                      export_rpc                                      
+-----------------+--------------------------------------------------------------------------------------
+ process-agent-a | FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+-- F3. 교차 테넌트 — 테넌트 A의 감사자가 테넌트 B를 조회하면 FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+                              auditor_a_reading_tenant_b                              
+--------------------------------------------------------------------------------------
+ FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+--     테넌트 B의 관리자는 테넌트 B를 읽을 수 있고, 테넌트 A는 못 읽는다
+ act 
+-----
+ 
+(1 row)
+
+ admin_b_own_tenant 
+--------------------
+ ok
+(1 row)
+
+                               admin_b_reading_tenant_a                               
+--------------------------------------------------------------------------------------
+ FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+(1 row)
+
+-- F4. tenant_id 누락은 INVALID
+ act 
+-----
+ 
+(1 row)
+
+          null_tenant           
+--------------------------------
+ INVALID: tenant_id is required
+(1 row)
+
+
+============================================================
+G. 기존 RLS는 좁혀지지 않았다 (D2, tasks.md 2.5)
+   — F1에서 거절당한 바로 그 사용자가 원본 테이블은 그대로 읽는다
+============================================================
+BEGIN
+ act 
+-----
+ 
+(1 row)
+
+SET
+ inbound_operator_can_still_select_raw_table 
+---------------------------------------------
+ t
+(1 row)
+
+--     ...그리고 다른 테넌트의 행은 RLS가 여전히 막는다
+ rows_visible_from_tenant_b 
+----------------------------
+                          0
+(1 row)
+
+COMMIT
+
+============================================================
+H. 내보내기 (D4 / D5) — 자기 감사와 안전 상한
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- H1. 필터 조건에 맞는 전체 집합이 페이지네이션 없이 반환된다
+ row_count | total_count | max_rows 
+-----------+-------------+----------
+ 120       | 120         | 10000
+(1 row)
+
+-- H2. 내보내기 결과에는 자기 자신이 들어 있지 않다
+--     (자기 감사 행은 결과 집합을 확정한 뒤에 INSERT되므로, 그 행의 id는
+--      방금 돌려받은 rows 안에 없다. 다음 번 내보내기에서는 보인다 — H3)
+ wrote_a_self_audit_row | rows_containing_itself 
+------------------------+------------------------
+ t                      |                      0
+(1 row)
+
+-- H3. 그러나 직후 재조회하면 자기 감사 이벤트가 보인다 (spec.md 시나리오)
+       command        |     exported_by      | filter_correlation_id | filter_row_count |                      summary_ko                      
+----------------------+----------------------+-----------------------+------------------+------------------------------------------------------
+ wms_export_audit_log | auditor-a@demo.local | AUDIT-V-PAGE          | 121              | 감사 로그 121건이 내보내졌다 — 기간 (처음) ~ (현재).
+ wms_export_audit_log | auditor-a@demo.local | AUDIT-V-PAGE          | 120              | 감사 로그 120건이 내보내졌다 — 기간 (처음) ~ (현재).
+(2 rows)
+
+-- H4. 자기 감사 행의 actor는 auth.uid()이지, actor 필터가 아니다 (V4)
+ self_audit_actor_is_the_caller 
+--------------------------------
+ t
+(1 row)
+
+-- H5. 안전 상한 초과는 INVALID이고 아무 것도 내보내지 않는다 (D5 / V5)
+                                              over_the_cap                                               
+---------------------------------------------------------------------------------------------------------
+ INVALID: export matches 123 events, over the 3 row safety limit — narrow the date range or add a filter
+(1 row)
+
+--     거절된 호출은 자기 감사 행도 남기지 않는다
+ put 
+-----
+ 3
+(1 row)
+
+                                             rejected_again                                              
+---------------------------------------------------------------------------------------------------------
+ INVALID: export matches 123 events, over the 3 row safety limit — narrow the date range or add a filter
+(1 row)
+
+ before_count | after_count 
+--------------+-------------
+            3 |           3
+(1 row)
+
+-- H6. 상한은 낮출 수만 있고 올릴 수는 없다 (하드 실링 10000)
+                       raise_the_cap                       |                       zero_cap                        | at_the_cap 
+-----------------------------------------------------------+-------------------------------------------------------+------------
+ INVALID: max_rows must be between 1 and 10000 (got 20000) | INVALID: max_rows must be between 1 and 10000 (got 0) | 123
+(1 row)
+
+
+============================================================
+I. 판단 근거 조인 (D3 / 2단계) — wms.agent_decisions
+============================================================
+-- I1. 에이전트가 같은 correlation_id로 조치와 근거를 남긴다
+ act 
+-----
+ 
+(1 row)
+
+ logged 
+--------
+ LOGGED
+(1 row)
+
+INSERT 0 1
+-- I2. 조회 결과에 근거 원문과, 그것이 반영된 요약이 함께 나온다
+ act 
+-----
+ 
+(1 row)
+
+            command             | has_reasoning | decision_status |                                                                                              summary_ko                                                                                              
+--------------------------------+---------------+-----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ wms_dispatch_equipment_command | true          | LOGGED          | 설비 명령(MOVE)이 하달되었다 — 상태 DISPATCHED. (사유: AUDIT-V: 대상 구역의 유일한 AGV가 30분 관찰 창에서 장애 1건으로 병목 판정되어 대체 설비로 재배치했다.)
+ wms_log_agent_decision         | true          | LOGGED          | 에이전트가 자율 실행한 조치의 판단 근거를 기록했다 — 유형 DISPATCH_RETRY, 상태 LOGGED. (사유: AUDIT-V: 대상 구역의 유일한 AGV가 30분 관찰 창에서 장애 1건으로 병목 판정되어 대체 설비로 재배치했다.)
+(2 rows)
+
+-- I3. 같은 correlation_id에 판단 기록이 둘이어도 감사 이벤트는 한 번만 나온다 (V3)
+ act 
+-----
+ 
+(1 row)
+
+ second_logged 
+---------------
+ LOGGED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ total_count | dispatch_rows 
+-------------+---------------
+ 3           |             1
+(1 row)
+
+-- I4. 근거가 없는 사람 명령은 근거 문구 없이 정상 요약된다 (느슨한 결합)
+           command            | has_reasoning |                                    summary_ko                                    
+------------------------------+---------------+----------------------------------------------------------------------------------
+ wms_confirm_purchase_order   | false         | 발주(PO)가 확정되어 입고 예정이 생성되었다 — 수량 77, 상태 CONFIRMED_PO.
+ wms_submit_purchase_approval | false         | 발주 승인 심사가 처리되었다 — 상태 APPROVED, 사유 AUDIT-V: 재주문점 미달로 승인.
+ wms_create_rfq               | false         | 구매 요청(RFQ)이 생성되었다 — 수량 77, 상태 TO_APPROVE.
+(3 rows)
+
+-- I5. correlation_id는 자유 텍스트다 — 다른 테넌트의 같은 값과 섞이지 않는다
+INSERT 0 1
+ act 
+-----
+ 
+(1 row)
+
+ tenant_a_only 
+---------------
+ 3
+(1 row)
+
+
+============================================================
+J. 정리
+============================================================
+DELETE 130
+DELETE 0
+DELETE 2
+DELETE 2
+DELETE 1
+DELETE 0
+DELETE 1
+DELETE 4
+ leftover_events | leftover_decisions | leftover_pos 
+-----------------+--------------------+--------------
+               0 |                  0 |            0
+(1 row)
+
+
+=== verify.sql 완료 ===

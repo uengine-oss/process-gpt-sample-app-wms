@@ -1,0 +1,318 @@
+fixture receipt: d4ac66c6-461e-4170-8489-2e36b6016dac | equipment: ['MCP-WES-EA64D5-A', 'MCP-WES-EA64D5-B'] in ZONE-EA6
+TOOLS: ['cancel_equipment_command', 'cancel_work_order', 'confirm_po', 'create_rfq', 'create_work_order', 'dispatch_equipment_command', 'get_availability', 'get_equipment_status', 'get_work_order_status', 'inspect', 'open_dispatch_wave', 'putaway', 'raise_equipment_fault', 'receive', 'register_arrival', 'register_equipment', 'release_dispatch_wave', 'report_command_result', 'report_equipment_status', 'request_approval', 'resolve_equipment_fault', 'retry_work_order_dispatch', 'scrap']
+
+### open_dispatch_wave
+{
+  "result": "ok",
+  "document_id": "d80f7c61-c402-4ba7-bc9d-e835d3cd5ae2",
+  "status": "OPEN",
+  "version": 1,
+  "warnings": [],
+  "next_actions": [
+    "create_work_order",
+    "release_dispatch_wave"
+  ]
+}
+
+### create_work_order (WAVE, slot 1)
+{
+  "result": "ok",
+  "document_id": "816f578c-a86b-4ee3-a73d-9427a529aa6e",
+  "status": "QUEUED",
+  "version": 1,
+  "links": {},
+  "warnings": [],
+  "next_actions": [
+    "release_dispatch_wave"
+  ]
+}
+
+### create_work_order (WAVE, slot 2)
+{
+  "result": "ok",
+  "document_id": "7131ada6-b613-49fc-8503-2f91975094b4",
+  "status": "QUEUED",
+  "version": 1,
+  "links": {},
+  "warnings": [],
+  "next_actions": [
+    "release_dispatch_wave"
+  ]
+}
+
+### create_work_order (WAVE, slot 3)
+{
+  "result": "ok",
+  "document_id": "6144cf41-4a0c-48c3-9a71-f4fa61b2bfd2",
+  "status": "QUEUED",
+  "version": 1,
+  "links": {},
+  "warnings": [],
+  "next_actions": [
+    "release_dispatch_wave"
+  ]
+}
+
+### release_dispatch_wave
+{
+  "result": "ok",
+  "document_id": "d80f7c61-c402-4ba7-bc9d-e835d3cd5ae2",
+  "status": "RELEASED",
+  "version": 2,
+  "dispatched_count": 2,
+  "queued_count": 1,
+  "work_orders": [
+    {
+      "status": "DISPATCHED",
+      "dispatched": true,
+      "work_order_id": "816f578c-a86b-4ee3-a73d-9427a529aa6e",
+      "equipment_code": "MCP-WES-EA64D5-A"
+    },
+    {
+      "status": "DISPATCHED",
+      "dispatched": true,
+      "work_order_id": "7131ada6-b613-49fc-8503-2f91975094b4",
+      "equipment_code": "MCP-WES-EA64D5-B"
+    },
+    {
+      "status": "QUEUED",
+      "dispatched": false,
+      "work_order_id": "6144cf41-4a0c-48c3-9a71-f4fa61b2bfd2",
+      "equipment_code": null
+    }
+  ],
+  "warnings": [
+    "NO_EQUIPMENT_AVAILABLE: 1 work order(s) stay QUEUED"
+  ],
+  "next_actions": [
+    "retry_work_order_dispatch",
+    "get_work_order_status"
+  ]
+}
+
+### release_dispatch_wave again (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: dispatch wave d80f7c61-c402-4ba7-bc9d-e835d3cd5ae2 is not OPEN (status=RELEASED)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_work_order_status
+{
+  "result": "ok",
+  "document": {
+    "count": 12,
+    "waves": [
+      {
+        "status": "RELEASED",
+        "version": 2,
+        "wave_id": "d80f7c61-c402-4ba7-bc9d-e835d3cd5ae2",
+        "created_at": "2026-07-27T02:49:04.00169+00:00",
+        "released_at": "2026-07-27T02:49:04.592239+00:00",
+        "queued_count": 1,
+        "work_order_count": 3
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "d5df348e-6d4c-48e5-8f64-e4176a6e4fad",
+        "created_at": "2026-07-27T02:49:03.079087+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "9f06bcd2-b26c-4fc4-801c-7b0de61ebd09",
+        "created_at": "2026-07-27T02:49:03.074281+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "e03b7cd4-b553-4a48-9f9d-ea18cd06f858",
+        "created_at": "2026-07-27T02:49:03.073467+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "
+
+flow balance — commands landed on: ['MCP-WES-EA64D5-A', 'MCP-WES-EA64D5-B']
+
+### report_command_result ACKNOWLEDGED (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "4d8b047b-3e76-4eea-aea5-1d751dcbb782",
+  "status": "ACKNOWLEDGED",
+  "version": 2,
+  "links": {
+    "equipment_id": "e7e2ab41-160c-4feb-b963-0cf2d442d793",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result"
+  ]
+}
+
+### report_command_result IN_PROGRESS (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "4d8b047b-3e76-4eea-aea5-1d751dcbb782",
+  "status": "IN_PROGRESS",
+  "version": 3,
+  "links": {
+    "equipment_id": "e7e2ab41-160c-4feb-b963-0cf2d442d793",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result"
+  ]
+}
+
+### report_command_result COMPLETED (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "4d8b047b-3e76-4eea-aea5-1d751dcbb782",
+  "status": "COMPLETED",
+  "version": 4,
+  "links": {
+    "equipment_id": "e7e2ab41-160c-4feb-b963-0cf2d442d793",
+    "equipment_status": "IDLE",
+    "equipment_version": 4
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+### get_work_order_status after completion
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "waves": [
+      {
+        "status": "RELEASED",
+        "version": 2,
+        "wave_id": "d80f7c61-c402-4ba7-bc9d-e835d3cd5ae2",
+        "created_at": "2026-07-27T02:49:04.00169+00:00",
+        "released_at": "2026-07-27T02:49:04.592239+00:00",
+        "queued_count": 1,
+        "work_order_count": 3
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "d5df348e-6d4c-48e5-8f64-e4176a6e4fad",
+        "created_at": "2026-07-27T02:49:03.079087+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "9f06bcd2-b26c-4fc4-801c-7b0de61ebd09",
+        "created_at": "2026-07-27T02:49:03.074281+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "OPEN",
+        "version": 1,
+        "wave_id": "e03b7cd4-b553-4a48-9f9d-ea18cd06f858",
+        "created_at": "2026-07-27T02:49:03.073467+00:00",
+        "released_at": null,
+        "queued_count": 0,
+        "work_order_count": 0
+      },
+      {
+        "status": "O
+
+propagation: work order 7131ada6 -> COMPLETED
+
+### retry_work_order_dispatch
+{
+  "result": "ok",
+  "document_id": "6144cf41-4a0c-48c3-9a71-f4fa61b2bfd2",
+  "status": "DISPATCHED",
+  "version": 2,
+  "links": {
+    "equipment_id": "e7e2ab41-160c-4feb-b963-0cf2d442d793",
+    "equipment_code": "MCP-WES-EA64D5-B",
+    "equipment_command_id": "ef20db94-9c72-4fd7-9cc5-9ea13999ee05"
+  },
+  "warnings": [],
+  "next_actions": [
+    "get_work_order_status",
+    "cancel_work_order"
+  ]
+}
+
+### retry with a stale version (expect CONFLICT)
+{
+  "result": "error",
+  "error_kind": "CONFLICT",
+  "http_status_equivalent": 409,
+  "message": "{'message': 'CONFLICT: expected version 1 but found 2', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### cancel_work_order (DISPATCHED -> cascade)
+{
+  "result": "ok",
+  "document_id": "6144cf41-4a0c-48c3-9a71-f4fa61b2bfd2",
+  "status": "CANCELLED",
+  "version": 3,
+  "warnings": [],
+  "links": {
+    "cancelled_equipment_command_id": "ef20db94-9c72-4fd7-9cc5-9ea13999ee05"
+  },
+  "next_actions": [
+    "get_work_order_status"
+  ]
+}
+
+### cancel an already CANCELLED work order (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: work order 6144cf41-4a0c-48c3-9a71-f4fa61b2bfd2 is already terminal (status=CANCELLED)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_work_order_status for tenant B warehouse (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### create_work_order dry_run
+{
+  "result": "dry_run",
+  "would_call": "wms_create_work_order",
+  "input": {
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a",
+    "work_order_type": "PUTAWAY",
+    "linked_entity_type": "receipt",
+    "linked_entity_id": "d4ac66c6-461e-4170-8489-2e36b6016dac",
+    "equipment_type": "AGV",
+    "zone_code": null,
+    "command_type": "MOVE",
+    "dispatch_mode": "WAVELESS",
+    "wave_id": null
+  }
+}
+
+All MCP round-trip assertions passed.

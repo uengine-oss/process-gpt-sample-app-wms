@@ -1,0 +1,833 @@
+NOTICE:  truncate cascades to table "work_orders"
+NOTICE:  truncate cascades to table "sortation_profiles"
+NOTICE:  truncate cascades to table "wcs_routing_overrides"
+
+==============================================================
+0. FIXTURE — three AGVs that compete for the same work, one
+   AGV in a queue-only zone, one SORTER with no policy, and a
+   receipt for area 2 work orders to hang off
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                   register_agv01                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "ff84aa66-dc0c-489c-b786-46ba22a45e75", "equipment_id": "ff84aa66-dc0c-489c-b786-46ba22a45e75", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                   register_agv02                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "equipment_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                   register_agv03                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                   register_agv09                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                 register_sorter01                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "equipment_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                 boot_agv01                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "ff84aa66-dc0c-489c-b786-46ba22a45e75", "equipment_id": "ff84aa66-dc0c-489c-b786-46ba22a45e75", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                 boot_agv02                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "equipment_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                 boot_agv03                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                 boot_agv09                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                               boot_sorter01                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "equipment_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+RESET
+ equipment_code | equipment_type |   zone_code    | status 
+----------------+----------------+----------------+--------
+ RTE-AGV-01     | AGV            | ZONE-SIM-ROUTE | IDLE
+ RTE-AGV-02     | AGV            | ZONE-SIM-ROUTE | IDLE
+ RTE-AGV-03     | AGV            | ZONE-SIM-ROUTE | IDLE
+ RTE-AGV-09     | AGV            | ZONE-SIM-QUEUE | IDLE
+ RTE-SORT-01    | SORTER         | ZONE-SIM-QUEUE | IDLE
+(5 rows)
+
+
+==============================================================
+1. Live load/health signals with no policy registered
+   (spec: "설비 부하·건강 신호 조회", "정책이 없는 설비 유형에는
+    기본 임계값이 적용된다")
+==============================================================
+  every machine is idle, so nothing is a bottleneck and the applied
+  thresholds are the system defaults (queue 3 / fault 1):
+ equipment_code | queue_depth | recent_completed_count | recent_fault_count | q_thr | f_thr | using_defaults | is_bottleneck | bottleneck_reasons 
+----------------+-------------+------------------------+--------------------+-------+-------+----------------+---------------+--------------------
+ RTE-AGV-01     |           0 |                      0 |                  0 |     3 |     1 | t              | f             | {}
+ RTE-AGV-02     |           0 |                      0 |                  0 |     3 |     1 | t              | f             | {}
+ RTE-AGV-03     |           0 |                      0 |                  0 |     3 |     1 | t              | f             | {}
+ RTE-AGV-09     |           0 |                      0 |                  0 |     3 |     1 | t              | f             | {}
+ RTE-SORT-01    |           0 |                      0 |                  0 |     3 |     1 | t              | f             | {}
+(5 rows)
+
+
+==============================================================
+2. Threshold policy registration
+   (spec: "병목 감지 임계값 정책 관리")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  happy path — AGV gets queue 3 / fault 2 (stricter than the default 1)
+                                                                                                                                                                 register_agv_policy                                                                                                                                                                 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "document_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "next_actions": ["get_equipment_routing_status", "update_wcs_routing_policy"], "equipment_type": "AGV", "fault_count_threshold": 2, "queue_depth_threshold": 3}
+(1 row)
+
+  refusals
+                                   register_duplicate_type                                   
+---------------------------------------------------------------------------------------------
+ ERR  INVALID: a routing policy for AGV already exists in this warehouse — update it instead
+(1 row)
+
+           register_unknown_type            
+--------------------------------------------
+ ERR  INVALID: unknown equipment_type DRONE
+(1 row)
+
+               register_zero_queue_threshold                
+------------------------------------------------------------
+ ERR  INVALID: queue_depth_threshold must be greater than 0
+(1 row)
+
+               register_zero_fault_threshold                
+------------------------------------------------------------
+ ERR  INVALID: fault_count_threshold must be greater than 0
+(1 row)
+
+                          register_other_warehouse                           
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+RESET
+
+  role refusals — WCS_OPERATOR may exclude equipment but may NOT tune
+  thresholds (migration DEVIATION 3), and an unrelated role gets nothing
+ act 
+-----
+ 
+(1 row)
+
+SET
+                register_as_wcs_operator                 
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot manage wcs routing policies
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                   register_as_quality                   
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot manage wcs routing policies
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                            register_cross_tenant                            
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+ tenant_b_sees_policies 
+------------------------
+                      0
+(1 row)
+
+RESET
+
+==============================================================
+3. Threshold policy update (spec: "정책의 임계값을 갱신한다",
+   "버전이 어긋나면 갱신이 거부된다")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  WMS_ADMIN widens the queue threshold with the right version
+                                                                                                                                                 update_queue_threshold                                                                                                                                                 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 2, "warnings": [], "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "document_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "next_actions": ["get_equipment_routing_status"], "equipment_type": "AGV", "fault_count_threshold": 2, "queue_depth_threshold": 8}
+(1 row)
+
+  stale version / non-positive / nothing to update
+             update_stale_version              
+-----------------------------------------------
+ ERR  CONFLICT: expected version 1 but found 2
+(1 row)
+
+                 update_negative_threshold                  
+------------------------------------------------------------
+ ERR  INVALID: queue_depth_threshold must be greater than 0
+(1 row)
+
+                                        update_nothing                                        
+----------------------------------------------------------------------------------------------
+ ERR  INVALID: nothing to update — provide queue_depth_threshold and/or fault_count_threshold
+(1 row)
+
+  ...and back to 3 so the rest of the run uses a realistic value
+                                                                                                                                                  update_back_to_three                                                                                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 3, "warnings": [], "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "document_id": "6361ac57-e0f2-409e-8905-44dfca7ee281", "next_actions": ["get_equipment_routing_status"], "equipment_type": "AGV", "fault_count_threshold": 2, "queue_depth_threshold": 3}
+(1 row)
+
+RESET
+ equipment_type | queue_depth_threshold | fault_count_threshold | version 
+----------------+-----------------------+-----------------------+---------
+ AGV            |                     3 |                     2 |       3
+(1 row)
+
+
+==============================================================
+4. Bottleneck by QUEUE DEPTH (spec: "큐 길이가 임계값을 넘으면
+   병목으로 판정된다")
+==============================================================
+  three commands are stacked on RTE-AGV-09 (its own zone, so it never
+  competes with the routing tests below)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                         queue_cmd_1                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "39005f55-51ed-449c-8624-55a6c5f4952f", "document_id": "39005f55-51ed-449c-8624-55a6c5f4952f", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+                                                                                                                                                                         queue_cmd_2                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "2825ddac-bdc6-4fe7-9eef-af40540a74e4", "document_id": "2825ddac-bdc6-4fe7-9eef-af40540a74e4", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+                                                                                                                                                                         queue_cmd_3                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "a5eee068-a16a-40d1-a2fd-96b542dfd7d9", "document_id": "a5eee068-a16a-40d1-a2fd-96b542dfd7d9", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+RESET
+ equipment_code | status  | queue_depth | q_thr | is_bottleneck |   bottleneck_reasons   
+----------------+---------+-------------+-------+---------------+------------------------
+ RTE-AGV-09     | RUNNING |           3 |     3 | t             | {QUEUE_DEPTH_EXCEEDED}
+ RTE-SORT-01    | IDLE    |           0 |     3 | f             | {}
+(2 rows)
+
+
+  NOTE (migration DEVIATION 2): a machine with a queue is RUNNING and has
+  outstanding commands, so area 2 already refuses it as a candidate —
+  QUEUE_DEPTH_EXCEEDED is a monitoring signal, not a selection input.
+           question            | answer 
+-------------------------------+--------
+ RTE-AGV-09 would be routable? | f
+(1 row)
+
+
+==============================================================
+5. Bottleneck by FAULT FREQUENCY (spec: "최근 장애 건수가
+   임계값을 넘으면 병목으로 판정된다")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  one fault on RTE-AGV-02 — below the policy threshold of 2, so NOT yet
+               fault_cycle_1                
+--------------------------------------------
+ OK   fault SIM_DRIFT_1 raised and resolved
+(1 row)
+
+RESET
+ equipment_code | status | recent_fault_count | f_thr | is_bottleneck | bottleneck_reasons 
+----------------+--------+--------------------+-------+---------------+--------------------
+ RTE-AGV-02     | IDLE   |                  1 |     2 | f             | {}
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+  a second fault inside the 30-minute window tips it over
+               fault_cycle_2                
+--------------------------------------------
+ OK   fault SIM_DRIFT_2 raised and resolved
+(1 row)
+
+RESET
+ equipment_code | status | recent_fault_count | f_thr | is_bottleneck |     bottleneck_reasons     
+----------------+--------+--------------------+-------+---------------+----------------------------
+ RTE-AGV-02     | IDLE   |                  2 |     2 | t             | {FAULT_FREQUENCY_EXCEEDED}
+(1 row)
+
+
+  the machine is IDLE and command-free again — it is a perfectly legal
+  candidate that this contract merely PREFERS NOT to use:
+ equipment_code | status | queue_depth | recent_fault_count | is_bottleneck 
+----------------+--------+-------------+--------------------+---------------
+ RTE-AGV-01     | IDLE   |           0 |                  0 | f
+ RTE-AGV-02     | IDLE   |           0 |                  2 | t
+ RTE-AGV-03     | IDLE   |           0 |                  0 | f
+(3 rows)
+
+
+==============================================================
+6. wms.wcs_select_available_equipment — the selection hook
+   (spec: "가용 설비 선택에 대한 병목 회피 반영", unit level)
+==============================================================
+  6a. all three clean-ish: area 2s original tie-break wins (oldest first)
+   picked   
+------------
+ RTE-AGV-01
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+
+  6b. RTE-AGV-01 force-excluded -> candidates are AGV-02 (bottleneck)
+      and AGV-03 (clean). The clean one must win.
+                                                                                                                                                                            exclude_agv01                                                                                                                                                                             
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "1a465708-d687-4d89-a1d0-289353cbe590", "override_id": "1a465708-d687-4d89-a1d0-289353cbe590", "equipment_id": "ff84aa66-dc0c-489c-b786-46ba22a45e75", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-AGV-01"}
+(1 row)
+
+RESET
+   picked   
+------------
+ RTE-AGV-03
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+
+  6c. AGV-03 excluded too -> only the bottleneck machine is left.
+      A bottleneck flag is a preference, not a veto: it IS selected.
+                                                                                                                                                                            exclude_agv03                                                                                                                                                                             
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "8e4d55d6-dc6d-43c6-8a1b-7598dccc5a0b", "override_id": "8e4d55d6-dc6d-43c6-8a1b-7598dccc5a0b", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-AGV-03"}
+(1 row)
+
+RESET
+   picked   
+------------
+ RTE-AGV-02
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+
+  6d. AGV-02 excluded as well -> nothing at all. A force-exclusion IS a
+      veto, even when it removes the last candidate.
+                                                                                                                                                                            exclude_agv02                                                                                                                                                                             
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "4f592ed2-d0ae-4cc0-ba06-da47fbddf5d2", "override_id": "4f592ed2-d0ae-4cc0-ba06-da47fbddf5d2", "equipment_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-AGV-02"}
+(1 row)
+
+RESET
+                picked                 
+---------------------------------------
+ (none — work order would stay QUEUED)
+(1 row)
+
+ equipment_code |   reason    | status | version 
+----------------+-------------+--------+---------
+ RTE-AGV-01     | 계획 정비   | ACTIVE |       1
+ RTE-AGV-02     | 센서 점검   | ACTIVE |       1
+ RTE-AGV-03     | 배터리 교체 | ACTIVE |       1
+(3 rows)
+
+
+==============================================================
+7. Manual exclusion RPC edge cases
+   (spec: "설비 수동 라우팅 제외")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  duplicate ACTIVE exclusion / empty reason / unknown equipment
+                                        exclude_duplicate                                        
+-------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment RTE-AGV-01 is already excluded from routing — clear the exclusion first
+(1 row)
+
+       exclude_blank_reason       
+----------------------------------
+ ERR  INVALID: reason is required
+(1 row)
+
+                      exclude_unknown_equipment                       
+----------------------------------------------------------------------
+ ERR  INVALID: unknown equipment 00000000-0000-0000-0000-0000000000ff
+(1 row)
+
+
+  in-flight commands are NOT cancelled by an exclusion — the caller is told so
+                                                                                                                                                                                          exclude_busy_machine                                                                                                                                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": ["IN_FLIGHT_COMMANDS_NOT_CANCELLED"], "document_id": "a4ca1b4c-752a-4e8c-9045-71f29a91988b", "override_id": "a4ca1b4c-752a-4e8c-9045-71f29a91988b", "equipment_id": "960c49fe-966b-4bb5-90b2-ff45cf72b10a", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-AGV-09"}
+(1 row)
+
+RESET
+
+  role / tenant refusals
+ act 
+-----
+ 
+(1 row)
+
+SET
+                     exclude_as_quality                     
+------------------------------------------------------------
+ ERR  FORBIDDEN: role cannot exclude equipment from routing
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                 exclude_cross_tenant                                  
+---------------------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for equipment 493d9930-7fc3-4903-acdf-da0cabf4f8af
+(1 row)
+
+ tenant_b_sees_overrides 
+-------------------------
+                       0
+(1 row)
+
+RESET
+
+  clearing: stale version -> CONFLICT, right version -> CLEARED,
+  second clear -> INVALID
+ act 
+-----
+ 
+(1 row)
+
+SET
+              clear_stale_version              
+-----------------------------------------------
+ ERR  CONFLICT: expected version 7 but found 1
+(1 row)
+
+                                                                                                                                                                            clear_agv03                                                                                                                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CLEARED", "version": 2, "warnings": [], "document_id": "8e4d55d6-dc6d-43c6-8a1b-7598dccc5a0b", "override_id": "8e4d55d6-dc6d-43c6-8a1b-7598dccc5a0b", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["get_equipment_routing_status", "exclude_equipment_from_routing"], "equipment_code": "RTE-AGV-03"}
+(1 row)
+
+                                             clear_again                                             
+-----------------------------------------------------------------------------------------------------
+ ERR  INVALID: routing exclusion 8e4d55d6-dc6d-43c6-8a1b-7598dccc5a0b is not ACTIVE (status=CLEARED)
+(1 row)
+
+RESET
+ equipment_code | status  | version | has_cleared_by | has_cleared_at 
+----------------+---------+---------+----------------+----------------
+ RTE-AGV-03     | CLEARED |       2 | t              | t
+(1 row)
+
+
+  AGV-03 is back in the candidate pool immediately (D2 — the verdict is
+  recomputed per query, nothing had to be rebuilt):
+   picked   
+------------
+ RTE-AGV-03
+(1 row)
+
+
+==============================================================
+8. INTEGRATION with wms_wes-material-flow-control (area 2)
+   — the same four scenarios, but through the REAL dispatch RPC
+   instead of the selection function (tasks.md 6.2)
+==============================================================
+  state: AGV-01 excluded, AGV-02 excluded, AGV-03 free but
+  ...first make ALL of them excluded so the work order has nowhere to go.
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                           re_exclude_agv03                                                                                                                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "285494bd-8b1b-4935-856c-2ebdd9887f7e", "override_id": "285494bd-8b1b-4935-856c-2ebdd9887f7e", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-AGV-03"}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+
+  8a. every candidate force-excluded -> QUEUED + NO_EQUIPMENT_AVAILABLE
+RESET
+ status |          warnings          | links 
+--------+----------------------------+-------
+ QUEUED | ["NO_EQUIPMENT_AVAILABLE"] | {}
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+
+  8b. clear the CLEAN machine (AGV-03) and retry: it must be picked over
+      the bottleneck one, which is still excluded anyway
+                                                                                                                                                                         clear_agv03_again                                                                                                                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CLEARED", "version": 2, "warnings": [], "document_id": "285494bd-8b1b-4935-856c-2ebdd9887f7e", "override_id": "285494bd-8b1b-4935-856c-2ebdd9887f7e", "equipment_id": "5b03fdb7-101c-41dd-a7c3-65c094e489ed", "next_actions": ["get_equipment_routing_status", "exclude_equipment_from_routing"], "equipment_code": "RTE-AGV-03"}
+(1 row)
+
+      ...and clear the BOTTLENECK machine too, so both compete honestly
+                                                                                                                                                                            clear_agv02                                                                                                                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CLEARED", "version": 2, "warnings": [], "document_id": "4f592ed2-d0ae-4cc0-ba06-da47fbddf5d2", "override_id": "4f592ed2-d0ae-4cc0-ba06-da47fbddf5d2", "equipment_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a", "next_actions": ["get_equipment_routing_status", "exclude_equipment_from_routing"], "equipment_code": "RTE-AGV-02"}
+(1 row)
+
+RESET
+ equipment_code | status | is_bottleneck | is_excluded 
+----------------+--------+---------------+-------------
+ RTE-AGV-01     | IDLE   | f             | t
+ RTE-AGV-02     | IDLE   | t             | f
+ RTE-AGV-03     | IDLE   | f             | f
+(3 rows)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+   status   | dispatched_to | warnings 
+------------+---------------+----------
+ DISPATCHED | RTE-AGV-03    | []
+(1 row)
+
+
+  8c. only the bottleneck machine is left free -> it IS used (fallback).
+      AGV-03 is now busy with 8b s command, AGV-01 is still excluded.
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+   status   | dispatched_to | warnings 
+------------+---------------+----------
+ DISPATCHED | RTE-AGV-02    | []
+(1 row)
+
+
+  8d. nothing free at all -> QUEUED again, without touching any override
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+ status |          warnings          
+--------+----------------------------
+ QUEUED | ["NO_EQUIPMENT_AVAILABLE"]
+(1 row)
+
+
+  final work-order board (area 2 read model, unchanged by this contract):
+   status   | equipment_code | command_type | command_status 
+------------+----------------+--------------+----------------
+ DISPATCHED | RTE-AGV-03     | MOVE         | PENDING
+ DISPATCHED | RTE-AGV-02     | MOVE         | PENDING
+ QUEUED     |                |              | 
+(3 rows)
+
+
+==============================================================
+9. Read RPC — wms_get_equipment_routing_status
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                        routing_status_agv02                         
+---------------------------------------------------------------------
+ {                                                                  +
+     "count": 1,                                                    +
+     "items": [                                                     +
+         {                                                          +
+             "routable": false,                                     +
+             "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",   +
+             "zone_code": "ZONE-SIM-ROUTE",                         +
+             "is_excluded": false,                                  +
+             "queue_depth": 1,                                      +
+             "equipment_id": "61b5dbd1-20fa-4c2c-80c6-ea5c7d66a31a",+
+             "is_bottleneck": true,                                 +
+             "equipment_code": "RTE-AGV-02",                        +
+             "equipment_type": "AGV",                               +
+             "active_override": null,                               +
+             "equipment_status": "RUNNING",                         +
+             "threshold_source": "POLICY",                          +
+             "equipment_version": 7,                                +
+             "bottleneck_reasons": [                                +
+                 "FAULT_FREQUENCY_EXCEEDED"                         +
+             ],                                                     +
+             "recent_fault_count": 2,                               +
+             "recent_completed_count": 0,                           +
+             "resolved_fault_count_threshold": 2,                   +
+             "resolved_queue_depth_threshold": 3                    +
+         }                                                          +
+     ],                                                             +
+     "result": "ok",                                                +
+     "policies": [                                                  +
+         {                                                          +
+             "version": 3,                                          +
+             "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",   +
+             "updated_at": "2026-07-27T03:36:17.285614+00:00",      +
+             "equipment_type": "AGV",                               +
+             "fault_count_threshold": 2,                            +
+             "queue_depth_threshold": 3                             +
+         }                                                          +
+     ],                                                             +
+     "tenant_id": "10000000-0000-0000-0000-00000000000a",           +
+     "warehouse_id": "20000000-0000-0000-0000-00000000000a",        +
+     "observation_window": "30 minutes",                            +
+     "default_fault_count_threshold": 1,                            +
+     "default_queue_depth_threshold": 3                             +
+ }
+(1 row)
+
+ machines_visible 
+------------------
+                5
+(1 row)
+
+RESET
+  a tenant-B admin gets FORBIDDEN on warehouse A and sees nothing of its own
+ act 
+-----
+ 
+(1 row)
+
+SET
+                              read_cross_tenant                              
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+ tenant_b_machines 
+-------------------
+                 0
+(1 row)
+
+ tenant_b_sees_load_rows 
+-------------------------
+                       0
+(1 row)
+
+RESET
+
+==============================================================
+10. RLS / grants (spec: "테넌트·창고 단위 접근 통제")
+==============================================================
+    grantee    |           table_name            | privileges 
+---------------+---------------------------------+------------
+ authenticated | wcs_equipment_bottleneck_status | SELECT
+ authenticated | wcs_equipment_load_snapshot     | SELECT
+ authenticated | wcs_routing_overrides           | SELECT
+ authenticated | wcs_routing_policies            | SELECT
+(4 rows)
+
+        relname        | rls_enabled 
+-----------------------+-------------
+ wcs_routing_policies  | t
+ wcs_routing_overrides | t
+(2 rows)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+                 direct_insert_policy                  
+-------------------------------------------------------
+ ERR  permission denied for table wcs_routing_policies
+(1 row)
+
+                 direct_update_override                 
+--------------------------------------------------------
+ ERR  permission denied for table wcs_routing_overrides
+(1 row)
+
+                 direct_delete_override                 
+--------------------------------------------------------
+ ERR  permission denied for table wcs_routing_overrides
+(1 row)
+
+  the internal selection hook is not callable by an app user:
+                  call_selection_hook_as_app_user                   
+--------------------------------------------------------------------
+ ERR  permission denied for function wcs_select_available_equipment
+(1 row)
+
+RESET
+  ...and its ACL confirms it (no authenticated/PUBLIC EXECUTE):
+            proname             |         acl         
+--------------------------------+---------------------
+ wcs_select_available_equipment | postgres=X/postgres
+(1 row)
+
+
+==============================================================
+11. Idempotency (tasks.md 3.8)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                          exclude_first_call                                                                                                                                                                           
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "84a03d78-526e-45be-af04-1c6f03f7a7c1", "override_id": "84a03d78-526e-45be-af04-1c6f03f7a7c1", "equipment_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-SORT-01"}
+(1 row)
+
+                                                                                                                                                                            exclude_replay                                                                                                                                                                             
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACTIVE", "version": 1, "warnings": [], "document_id": "84a03d78-526e-45be-af04-1c6f03f7a7c1", "override_id": "84a03d78-526e-45be-af04-1c6f03f7a7c1", "equipment_id": "493d9930-7fc3-4903-acdf-da0cabf4f8af", "next_actions": ["clear_equipment_routing_exclusion", "get_equipment_routing_status"], "equipment_code": "RTE-SORT-01"}
+(1 row)
+
+RESET
+ override_rows_for_sorter 
+--------------------------
+                        1
+(1 row)
+
+
+==============================================================
+12. Audit coverage (spec: "감사 추적")
+==============================================================
+                command                |     entity_type      | count 
+---------------------------------------+----------------------+-------
+ wms_clear_equipment_routing_exclusion | wcs_routing_override |     3
+ wms_exclude_equipment_from_routing    | wcs_routing_override |     6
+ wms_register_wcs_routing_policy       | wcs_routing_policy   |     1
+ wms_update_wcs_routing_policy         | wcs_routing_policy   |     2
+(4 rows)
+
+  the exclusion row carries after.status = ACTIVE, the clear row the transition:
+                command                | before_status | after_status |     reason      
+---------------------------------------+---------------+--------------+-----------------
+ wms_exclude_equipment_from_routing    |               | ACTIVE       | 계획 정비
+ wms_exclude_equipment_from_routing    |               | ACTIVE       | 배터리 교체
+ wms_exclude_equipment_from_routing    |               | ACTIVE       | 센서 점검
+ wms_exclude_equipment_from_routing    |               | ACTIVE       | 큐 소진 후 정비
+ wms_clear_equipment_routing_exclusion | ACTIVE        | CLEARED      | 배터리 교체
+ wms_exclude_equipment_from_routing    |               | ACTIVE       | 정비 재개
+(6 rows)
+
+
+==============================================================
+DONE
+==============================================================

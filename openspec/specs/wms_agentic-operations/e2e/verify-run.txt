@@ -1,0 +1,914 @@
+
+============================================================
+A. Schema shape
+============================================================
+ has_reasoning | has_proposed_action | has_signals_snapshot | has_correlation_id | has_version 
+---------------+---------------------+----------------------+--------------------+-------------
+             1 |                   1 |                    1 |                  1 |           1
+(1 row)
+
+ join_columns_present | audit_side_present 
+----------------------+--------------------
+                    3 |                  1
+(1 row)
+
+               conname               |                                                                               def                                                                               
+-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ agent_decisions_confirmed_pair_ck   | CHECK (((status = 'CONFIRMED'::text) = ((confirmed_by IS NOT NULL) AND (confirmed_at IS NOT NULL))))
+ agent_decisions_logged_no_action_ck | CHECK (((status = 'LOGGED'::text) = (proposed_action IS NULL)))
+ agent_decisions_proposal_type_ck    | CHECK ((btrim(proposal_type) <> ''::text))
+ agent_decisions_reasoning_ck        | CHECK ((btrim(reasoning) <> ''::text))
+ agent_decisions_rejected_pair_ck    | CHECK (((status = 'REJECTED'::text) = ((rejected_by IS NOT NULL) AND (rejected_at IS NOT NULL) AND (btrim(COALESCE(rejection_reason, ''::text)) <> ''::text))))
+ agent_decisions_status_check        | CHECK ((status = ANY (ARRAY['LOGGED'::text, 'PROPOSED'::text, 'CONFIRMED'::text, 'REJECTED'::text])))
+ agent_decisions_target_pair_ck      | CHECK (((target_entity_type IS NULL) = (target_entity_id IS NULL)))
+(7 rows)
+
+
+============================================================
+B. wms_log_agent_decision  (spec: 자율 실행 판단 근거 기록)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+              logged_id               
+--------------------------------------
+ 712476c5-08f2-4600-9b49-22f2a9673cd6
+(1 row)
+
+ status | proposal_type  | version | action_is_null | correlation_id |         reasoning_head          
+--------+----------------+---------+----------------+----------------+---------------------------------
+ LOGGED | DISPATCH_RETRY |       1 | t              | AGENT-V-CORR-1 | AGENT-V-1: 업무 오더가 32분간 Q
+(1 row)
+
+ blank_reasoning | null_reasoning 
+-----------------+----------------
+ INVALID         | INVALID
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                 buyer_logs                 
+--------------------------------------------
+ FORBIDDEN: role cannot log agent decisions
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ admin_log_status 
+------------------
+ LOGGED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                                   confirm_a_logged_record                                    
+----------------------------------------------------------------------------------------------
+ INVALID: agent decision 712476c5-08f2-4600-9b49-22f2a9673cd6 is not PROPOSED (status=LOGGED)
+(1 row)
+
+
+============================================================
+C. wms_propose_agent_action  (spec: 사람 승인이 필요한 제안 생성)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+             proposal_id              
+--------------------------------------
+ 9dfd35be-fb8c-4b80-9e09-15503f625033
+(1 row)
+
+  status  |  proposal_type  | version |        action         | target_entity_type 
+----------+-----------------+---------+-----------------------+--------------------
+ PROPOSED | LABOR_REBALANCE |       1 | MOVE_PUTAWAY_WORKLOAD | actor
+(1 row)
+
+ awaiting_review 
+-----------------
+ true
+(1 row)
+
+ null_action | empty_object | blank_reasoning 
+-------------+--------------+-----------------
+ INVALID     | INVALID      | INVALID
+(1 row)
+
+                 put                  
+--------------------------------------
+ d748da25-c846-46ff-86aa-d09ccab0c56f
+(1 row)
+
+              first_call              
+--------------------------------------
+ 363beb9e-c1bf-4e42-8f68-4402d2677e76
+(1 row)
+
+            retry_same_key            
+--------------------------------------
+ 363beb9e-c1bf-4e42-8f68-4402d2677e76
+(1 row)
+
+ rows_created 
+--------------
+            1
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+               operator_proposes               
+-----------------------------------------------
+ FORBIDDEN: role cannot create agent proposals
+(1 row)
+
+
+============================================================
+D. wms_confirm_agent_proposal  (spec: 에이전트 제안 승인)
+============================================================
+                                                              snapshot_taken                                                              
+------------------------------------------------------------------------------------------------------------------------------------------
+ equipment=0 labor_activities=7 la_versions=7 purchase_orders=0 receipts=0 routing_overrides=0 stock_ledger=2 work_orders=0 wo_versions=0
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                                              agent_confirms                                              | agent_confirms_wrong_version 
+----------------------------------------------------------------------------------------------------------+------------------------------
+ FORBIDDEN: PROCESS_AGENT may create proposals but not confirm or reject them (human review is the point) | FORBIDDEN
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+              wrong_version               
+------------------------------------------
+ CONFLICT: expected version 7 but found 1
+(1 row)
+
+  status  | version 
+----------+---------
+ PROPOSED |       1
+(1 row)
+
+                               confirm_envelope                                
+-------------------------------------------------------------------------------
+ {                                                                            +
+     "result": "ok",                                                          +
+     "status": "CONFIRMED",                                                   +
+     "version": 2,                                                            +
+     "warnings": [                                                            +
+         "CONFIRMED_BUT_NOT_EXECUTED"                                         +
+     ],                                                                       +
+     "decision_id": "9dfd35be-fb8c-4b80-9e09-15503f625033",                   +
+     "document_id": "9dfd35be-fb8c-4b80-9e09-15503f625033",                   +
+     "confirmed_at": "2026-07-27T12:24:55.460682+00:00",                      +
+     "confirmed_by": "3d24e779-ad38-4ae9-9cea-d6d48523cc84",                  +
+     "next_actions": [                                                        +
+         "get_agent_decisions"                                                +
+     ],                                                                       +
+     "proposal_type": "LABOR_REBALANCE",                                      +
+     "proposed_action": {                                                     +
+         "note": "실행 RPC가 존재하지 않으므로 사람이 수동으로 조치해야 한다",+
+         "action": "MOVE_PUTAWAY_WORKLOAD",                                   +
+         "suggested_rpc": null,                                               +
+         "to_actor_email": "quality-a@demo.local",                            +
+         "from_actor_email": "inbound-a@demo.local"                           +
+     }                                                                        +
+ }
+(1 row)
+
+  status   | version | confirmed_by_manager | has_timestamp | no_rejecter |      action_kept      
+-----------+---------+----------------------+---------------+-------------+-----------------------
+ CONFIRMED |       2 | t                    | t             | t           | MOVE_PUTAWAY_WORKLOAD
+(1 row)
+
+ no_other_table_moved 
+----------------------
+ t
+(1 row)
+
+                                         double_confirm                                          
+-------------------------------------------------------------------------------------------------
+ INVALID: agent decision 9dfd35be-fb8c-4b80-9e09-15503f625033 is not PROPOSED (status=CONFIRMED)
+(1 row)
+
+
+============================================================
+E. wms_reject_agent_proposal  (spec: 에이전트 제안 거부)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+             proposal2_id             
+--------------------------------------
+ e2f5557b-563a-4386-bde3-030df0ae97eb
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ blank_reason | null_reason 
+--------------+-------------
+ INVALID      | INVALID
+(1 row)
+
+ reject_status 
+---------------
+ REJECTED
+(1 row)
+
+  status  | version | rejected_by_manager | has_timestamp | no_confirmer |        reason_head        
+----------+---------+---------------------+---------------+--------------+---------------------------
+ REJECTED |       2 | t                   | t             | t            | AGENT-V-반려: 해당 SRM은 
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+             proposal3_id             
+--------------------------------------
+ 2e7ede19-9fae-4a69-a6da-f4bc63ea55fb
+(1 row)
+
+                                              agent_rejects                                               
+----------------------------------------------------------------------------------------------------------
+ FORBIDDEN: PROCESS_AGENT may create proposals but not confirm or reject them (human review is the point)
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+               operator_rejects                
+-----------------------------------------------
+ FORBIDDEN: role cannot review agent proposals
+(1 row)
+
+  status  | version 
+----------+---------
+ PROPOSED |       1
+(1 row)
+
+
+============================================================
+F. wms_get_agent_decisions  (spec: 에이전트 판단·제안 이력 조회)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+                        status_counts                        | pending 
+-------------------------------------------------------------+---------
+ {"LOGGED": 2, "PROPOSED": 2, "REJECTED": 1, "CONFIRMED": 1} | 2
+(1 row)
+
+ logged | proposed | confirmed | rejected 
+--------+----------+-----------+----------
+ 2      | 2        | 1         | 1
+(1 row)
+
+ labor_rebalance | routing_suggestion | dispatch_retry 
+-----------------+--------------------+----------------
+ 2               | 2                  | 2
+(1 row)
+
+ confirmed_labor | bad_status 
+-----------------+------------
+ 1               | INVALID
+(1 row)
+
+                                                                                       confirmed_row                                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {                                                                                                                                                                                        +
+     "status": "CONFIRMED",                                                                                                                                                               +
+     "version": 2,                                                                                                                                                                        +
+     "reasoning": "AGENT-V-3: 관찰 기간 동안 inbound-a가 12건, quality-a가 2건을 완료해 평균(7건) 대비 편차가 각각 +71%, -71%다. 오후 적치 작업 일부를 quality-a에게 넘길 것을 제안한다.",+
+     "created_at": "2026-07-27T12:24:55.452327+00:00",                                                                                                                                    +
+     "created_by": "d6cfa0c5-0698-4c5c-b33b-b53f08c24d9b",                                                                                                                                +
+     "decision_id": "9dfd35be-fb8c-4b80-9e09-15503f625033",                                                                                                                               +
+     "is_proposal": true,                                                                                                                                                                 +
+     "rejected_at": null,                                                                                                                                                                 +
+     "rejected_by": null,                                                                                                                                                                 +
+     "confirmed_at": "2026-07-27T12:24:55.460682+00:00",                                                                                                                                  +
+     "confirmed_by": "3d24e779-ad38-4ae9-9cea-d6d48523cc84",                                                                                                                              +
+     "proposal_type": "LABOR_REBALANCE",                                                                                                                                                  +
+     "correlation_id": "AGENT-V-CORR-3",                                                                                                                                                  +
+     "awaiting_review": false,                                                                                                                                                            +
+     "proposed_action": {                                                                                                                                                                 +
+         "note": "실행 RPC가 존재하지 않으므로 사람이 수동으로 조치해야 한다",                                                                                                            +
+         "action": "MOVE_PUTAWAY_WORKLOAD",                                                                                                                                               +
+         "suggested_rpc": null,                                                                                                                                                           +
+         "to_actor_email": "quality-a@demo.local",                                                                                                                                        +
+         "from_actor_email": "inbound-a@demo.local"                                                                                                                                       +
+     },                                                                                                                                                                                   +
+     "created_by_email": "process-agent-a@demo.local",                                                                                                                                    +
+     "rejection_reason": null,                                                                                                                                                            +
+     "signals_snapshot": {                                                                                                                                                                +
+         "imbalanced_count": 2,                                                                                                                                                           +
+         "imbalance_threshold": 0.40                                                                                                                                                      +
+     },                                                                                                                                                                                   +
+     "target_entity_id": "160c307c-b0d2-45ba-bc81-14f26e56b2ed",                                                                                                                          +
+     "rejected_by_email": null,                                                                                                                                                           +
+     "confirmed_by_email": "wh-manager-a@demo.local",                                                                                                                                     +
+     "target_entity_type": "actor"                                                                                                                                                        +
+ }
+(1 row)
+
+
+============================================================
+G. wms_get_worker_next_actions  (spec: 작업자 다음 행동 안내 조회)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+                po_id                 
+--------------------------------------
+ d40d0caf-e8dd-456e-a6f4-18062d6cfc07
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ po_approved 
+-------------
+ APPROVED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+              receipt_id              
+--------------------------------------
+ 929eb4e3-4578-4f99-a136-19786c3a4574
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ before_touching |            notes            
+-----------------+-----------------------------
+ 0               | ["NO_OPEN_ITEMS_FOR_ACTOR"]
+(1 row)
+
+ arrival 
+---------
+ ARRIVED
+(1 row)
+
+                       after_arrival                        
+------------------------------------------------------------
+ {                                                         +
+     "sku": "SKU-A-003",                                   +
+     "po_id": "d40d0caf-e8dd-456e-a6f4-18062d6cfc07",      +
+     "status": "ARRIVED",                                  +
+     "is_open": true,                                      +
+     "item_id": "929eb4e3-4578-4f99-a136-19786c3a4574",    +
+     "version": 2,                                         +
+     "item_type": "receipt",                               +
+     "product_id": "1b7dfe17-988c-4024-ad69-b0d5243dbe4f", +
+     "updated_at": "2026-07-27T12:24:55.476374+00:00",     +
+     "expected_qty": 24,                                   +
+     "next_actions": [                                     +
+         "receive"                                         +
+     ],                                                    +
+     "product_name": "Barcode Scanner Battery",            +
+     "received_qty": 0,                                    +
+     "last_touched_at": "2026-07-27T12:24:55.476374+00:00",+
+     "involvement_sources": [                              +
+         "audit_event"                                     +
+     ]                                                     +
+ }
+(1 row)
+
+  received  
+------------
+ QC_PENDING
+(1 row)
+
+   status   |       next_actions        |     sources     
+------------+---------------------------+-----------------
+ QC_PENDING | ["record_quality_result"] | ["audit_event"]
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ inspector_before 
+------------------
+ 0
+(1 row)
+
+       qc        
+-----------------
+ PUTAWAY_PENDING
+(1 row)
+
+ inspector_after |                sources                |       next_actions       
+-----------------+---------------------------------------+--------------------------
+ 1               | ["audit_event", "quality_inspection"] | ["create_putaway_tasks"]
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+      putaway      
+-------------------
+ PUTAWAY_COMPLETED
+(1 row)
+
+  receipt_status   | open_items | including_closed 
+-------------------+------------+------------------
+ PUTAWAY_COMPLETED | 0          | 1
+(1 row)
+
+ untouched_worker |            notes            
+------------------+-----------------------------
+ 0                | ["NO_OPEN_ITEMS_FOR_ACTOR"]
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                po2_id                
+--------------------------------------
+ c9fdf18c-5f74-476c-baad-7794396901a2
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+   po2    
+----------
+ APPROVED
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+             receipt2_id              
+--------------------------------------
+ ac27f3ee-51f1-4920-a928-596b1790c96c
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+   a2    
+---------
+ ARRIVED
+(1 row)
+
+     r2     
+------------
+ QC_PENDING
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+  qc_failed   
+--------------
+ QC_COMPLETED
+(1 row)
+
+ failed_receipt_status |  failed_receipt_next  
+-----------------------+-----------------------
+ QC_COMPLETED          | ["apply_disposition"]
+(1 row)
+
+
+============================================================
+H. wms_get_labor_balance_signals  (spec: 인력 작업량 불균형 신호)
+    Runs against area 8 for real (20260803_labor_management.sql).
+============================================================
+DELETE 0
+INSERT 0 14
+ act 
+-----
+ 
+(1 row)
+
+                 jsonb_pretty                 
+----------------------------------------------
+ {                                           +
+     "mean": 7.00,                           +
+     "rows": [                               +
+         {                                   +
+             "count": "12",                  +
+             "email": "inbound-a@demo.local",+
+             "deviation": "0.7143",          +
+             "direction": "ABOVE",           +
+             "imbalanced": "true"            +
+         },                                  +
+         {                                   +
+             "count": "2",                   +
+             "email": "quality-a@demo.local",+
+             "deviation": "-0.7143",         +
+             "direction": "BELOW",           +
+             "imbalanced": "true"            +
+         }                                   +
+     ],                                      +
+     "workers": 2,                           +
+     "threshold": 0.40,                      +
+     "imbalanced": 2                         +
+ }
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ balance_scope | balance_workers | productivity_scope | productivity_rows 
+---------------+-----------------+--------------------+-------------------
+ WAREHOUSE     | 2               | SELF               | 0
+(1 row)
+
+ leaderboard_scope 
+-------------------
+ SELF
+(1 row)
+
+ empty_rows |                empty_notes                
+------------+-------------------------------------------
+ 0          | ["NO_COMPLETED_LABOR_ACTIVITY_IN_PERIOD"]
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                      operator_reads_balance                      
+------------------------------------------------------------------
+ FORBIDDEN: role cannot read warehouse-wide labor balance signals
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ other_tenant_warehouse 
+------------------------
+ FORBIDDEN
+(1 row)
+
+
+============================================================
+I. wms_get_dispatch_delay_signals  (spec: 디스패치 지연 신호)
+    Runs against areas 2 + 4 for real
+    (20260728_wes_material_flow_control.sql, 20260730_wcs_bottleneck_routing.sql).
+============================================================
+DELETE 0
+DELETE 0
+DELETE 0
+ act 
+-----
+ 
+(1 row)
+
+                wo1_id                
+--------------------------------------
+ 566a1b83-2c9c-4afb-b1dd-a598353dd6c4
+(1 row)
+
+ status | reason 
+--------+--------
+ QUEUED | 
+(1 row)
+
+UPDATE 1
+             jsonb_pretty              
+---------------------------------------
+ {                                    +
+     "row": {                         +
+         "zone": "AGENT-V-ZONE",      +
+         "causes": [                  +
+             "NO_EQUIPMENT_REGISTERED"+
+         ],                           +
+         "candidates": "0",           +
+         "delay_minutes": "32.0",     +
+         "equipment_type": "AGV"      +
+     },                               +
+     "queued": 1,                     +
+     "delayed": 1,                    +
+     "threshold": 15                  +
+ }
+(1 row)
+
+                agv_id                
+--------------------------------------
+ bf370752-329d-4853-b57e-da4243d925b6
+(1 row)
+
+UPDATE 1
+INSERT 0 1
+ equipment_code | status | queue_depth | recent_fault_count | is_bottleneck |     bottleneck_reasons     
+----------------+--------+-------------+--------------------+---------------+----------------------------
+ AGENT-V-AGV-01 | IDLE   |           0 |                  1 | t             | {FAULT_FREQUENCY_EXCEEDED}
+(1 row)
+
+                              jsonb_pretty                               
+-------------------------------------------------------------------------
+ {                                                                      +
+     "row": {                                                           +
+         "idle": "1",                                                   +
+         "causes": [                                                    +
+             "ALL_ROUTABLE_CANDIDATES_BOTTLENECKED"                     +
+         ],                                                             +
+         "flagged": [                                                   +
+             {                                                          +
+                 "is_excluded": false,                                  +
+                 "queue_depth": 0,                                      +
+                 "equipment_id": "bf370752-329d-4853-b57e-da4243d925b6",+
+                 "equipment_code": "AGENT-V-AGV-01",                    +
+                 "equipment_status": "IDLE",                            +
+                 "bottleneck_reasons": [                                +
+                     "FAULT_FREQUENCY_EXCEEDED"                         +
+                 ],                                                     +
+                 "recent_fault_count": 1                                +
+             }                                                          +
+         ],                                                             +
+         "routable": "1",                                               +
+         "candidates": "1",                                             +
+         "bottlenecked": "1"                                            +
+     }                                                                  +
+ }
+(1 row)
+
+ excluded 
+----------
+ ACTIVE
+(1 row)
+
+              causes_after_exclusion              
+--------------------------------------------------
+ ["ALL_CANDIDATES_EXCLUDED", "NO_IDLE_EQUIPMENT"]
+(1 row)
+
+                wo2_id                
+--------------------------------------
+ 12407e4c-7f68-4dea-ac30-81fa72490f6d
+(1 row)
+
+ queued | delayed | fresh_wo_in_result 
+--------+---------+--------------------
+ 2      | 1       |                  0
+(1 row)
+
+ delayed_at_threshold_0 
+------------------------
+ 2
+(1 row)
+
+               wave_id                
+--------------------------------------
+ e8b00049-05a6-403c-96ab-fb067470eef5
+(1 row)
+
+                wo3_id                
+--------------------------------------
+ e3d1d679-4b4c-4edc-a57c-44d9299a01d3
+(1 row)
+
+UPDATE 1
+                              wave_causes                              | wave_status 
+-----------------------------------------------------------------------+-------------
+ ["ALL_CANDIDATES_EXCLUDED", "NO_IDLE_EQUIPMENT", "WAVE_NOT_RELEASED"] | OPEN
+(1 row)
+
+ delayed_in_wave 
+-----------------
+ 1
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ agent_reads 
+-------------
+ ok
+(1 row)
+
+
+============================================================
+J. The boundary this contract did NOT widen
+    (spec: 이 계약은 PROCESS_AGENT의 기존 금지 목록을 넓히지 않는다)
+============================================================
+ act 
+-----
+ 
+(1 row)
+
+              open_fault              
+--------------------------------------
+ 8704ef84-7c5f-4aec-b8ca-d4e36f458c49
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+            purchase_approval             |            apply_disposition             |                  resolve_fault                  |                   exclude_equipment                   |                   routing_policy                   
+------------------------------------------+------------------------------------------+-------------------------------------------------+-------------------------------------------------------+----------------------------------------------------
+ FORBIDDEN: role cannot approve purchases | FORBIDDEN: role cannot apply disposition | FORBIDDEN: role cannot resolve equipment faults | FORBIDDEN: role cannot exclude equipment from routing | FORBIDDEN: role cannot manage wcs routing policies
+(1 row)
+
+ agent_retries_dispatch 
+------------------------
+ QUEUED
+(1 row)
+
+ reasoning_filed 
+-----------------
+ LOGGED
+(1 row)
+
+UPDATE 1
+            command            |  entity_type   |    joined_reasoning     | status 
+-------------------------------+----------------+-------------------------+--------
+ wms_log_agent_decision        | agent_decision | AGENT-V-7: 32분 지연 +  | LOGGED
+ wms_retry_work_order_dispatch | work_order     | AGENT-V-7: 32분 지연 +  | LOGGED
+(2 rows)
+
+
+============================================================
+K. RLS, grants, cross-tenant
+============================================================
+    grantee    | privileges 
+---------------+------------
+ authenticated | SELECT
+(1 row)
+
+       policyname       |  cmd   |                                                   qual                                                    
+------------------------+--------+-----------------------------------------------------------------------------------------------------------
+ agent_decisions_select | SELECT | (warehouse_id IN ( SELECT wms.current_warehouse_ids(agent_decisions.tenant_id) AS current_warehouse_ids))
+(1 row)
+
+BEGIN
+SET
+ act 
+-----
+ 
+(1 row)
+
+ effective_role | tenant_a_manager_sees 
+----------------+-----------------------
+ authenticated  |                     7
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ tenant_b_admin_sees 
+---------------------
+                   0
+(1 row)
+
+                direct_insert                
+---------------------------------------------
+ permission denied for table agent_decisions
+(1 row)
+
+                direct_update                
+---------------------------------------------
+ permission denied for table agent_decisions
+(1 row)
+
+                direct_delete                
+---------------------------------------------
+ permission denied for table agent_decisions
+(1 row)
+
+ROLLBACK
+ rows_after_rls_probe 
+----------------------
+                    7
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+ read_other_tenant | log_other_tenant 
+-------------------+------------------
+ FORBIDDEN         | FORBIDDEN
+(1 row)
+
+                                 confirm_out_of_scope                                  
+---------------------------------------------------------------------------------------
+ FORBIDDEN: no warehouse scope for agent decision 2e7ede19-9fae-4a69-a6da-f4bc63ea55fb
+(1 row)
+
+
+============================================================
+L. Audit trail  (spec: 감사 추적)
+============================================================
+          command           |  entity_type   | n | with_before | with_after | with_correlation 
+----------------------------+----------------+---+-------------+------------+------------------
+ wms_confirm_agent_proposal | agent_decision | 1 |           1 |          1 |                1
+ wms_log_agent_decision     | agent_decision | 3 |           0 |          3 |                3
+ wms_propose_agent_action   | agent_decision | 4 |           0 |          4 |                4
+ wms_reject_agent_proposal  | agent_decision | 1 |           1 |          1 |                1
+(4 rows)
+
+     transition      | after_has_confirmer 
+---------------------+---------------------
+ PROPOSED->CONFIRMED | t
+(1 row)
+
+     transition     |     reason_head      
+--------------------+----------------------
+ PROPOSED->REJECTED | AGENT-V-반려: 해당 S
+(1 row)
+
+ fallback_correlation_rows 
+---------------------------
+                         5
+(1 row)
+
+
+============================================================
+M. Cleanup
+============================================================
+DELETE 9
+DELETE 7
+DELETE 14
+DELETE 3
+DELETE 1
+DELETE 2
+DELETE 0
+DELETE 1
+DELETE 1
+DELETE 6
+DELETE 4
+DELETE 2
+DELETE 1
+DELETE 11
+DELETE 2
+DELETE 2
+DELETE 9
+ decisions_left | labor_left | work_orders_left | equipment_left 
+----------------+------------+------------------+----------------
+              0 |          0 |                0 |              0
+(1 row)
+
+
+verify.sql complete.

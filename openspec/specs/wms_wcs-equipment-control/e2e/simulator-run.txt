@@ -1,0 +1,649 @@
+==============================================================
+1. REGISTER EQUIPMENT
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 1.1 admin registers AGV-07 (expect OK, OFFLINE, v1)
+                                                                                                                        try                                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+-- 1.2 duplicate equipment_code in same warehouse (expect INVALID)
+                                                   try                                                    
+----------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment_code AGV-07 already registered in warehouse 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+-- 1.3 bad equipment_type (expect INVALID)
+                    try                     
+--------------------------------------------
+ ERR  INVALID: unknown equipment_type DRONE
+(1 row)
+
+-- 1.4 second equipment SRM-02 for the fault scenario (expect OK)
+                                                                                                                        try                                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "9314c28c-7a89-4203-8d62-432f5440711c", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+-- 1.4b register idempotency retry (expect identical result, still 2 equipment)
+                                                                                                                        try                                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "3b8ff7be-46ab-4b8a-9020-4a2c519daff2", "equipment_id": "3b8ff7be-46ab-4b8a-9020-4a2c519daff2", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                        try                                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "3b8ff7be-46ab-4b8a-9020-4a2c519daff2", "equipment_id": "3b8ff7be-46ab-4b8a-9020-4a2c519daff2", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ equipment_rows 
+----------------
+              3
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 1.5 QUALITY_INSPECTOR tries to register (expect FORBIDDEN)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                      try                       
+------------------------------------------------
+ ERR  FORBIDDEN: role cannot register equipment
+(1 row)
+
+-- 1.6 tenant-B admin registers into tenant-A warehouse (expect FORBIDDEN)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                     try                                     
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000a
+(1 row)
+
+RESET
+==============================================================
+2. EQUIPMENT STATUS REPORT (gateway)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 2.1 gateway reports OFFLINE -> IDLE (expect OK, v2)
+                                                                                                                                    try                                                                                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+-- 2.2 undefined status value (expect INVALID)
+                         try                          
+------------------------------------------------------
+ ERR  INVALID: unknown equipment status UNKNOWN_STATE
+(1 row)
+
+-- 2.3 wrong expected_version (expect CONFLICT)
+                      try                       
+------------------------------------------------
+ ERR  CONFLICT: expected version 99 but found 2
+(1 row)
+
+-- 2.4 SRM-02 online too (expect OK)
+                                                                                                                                    try                                                                                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "9314c28c-7a89-4203-8d62-432f5440711c", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+-- 2.5 PROCESS_AGENT tries to report status (expect FORBIDDEN)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                         try                         
+-----------------------------------------------------
+ ERR  FORBIDDEN: role cannot report equipment status
+(1 row)
+
+-- 2.5b WCS_OPERATOR can raise a fault manually, then resolve it (expect OK, OK)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                         try                                                                                                                                                                          
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "fault_id": "0110baa6-14b7-4314-9cfe-0bdce6d6a88d", "document_id": "0110baa6-14b7-4314-9cfe-0bdce6d6a88d", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["resolve_equipment_fault"], "equipment_status": "FAULT", "equipment_version": 3, "failed_command_ids": []}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                   try                                                                                                                                                                                    
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "RESOLVED", "version": 2, "fault_id": "0110baa6-14b7-4314-9cfe-0bdce6d6a88d", "warnings": [], "document_id": "0110baa6-14b7-4314-9cfe-0bdce6d6a88d", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 4}
+(1 row)
+
+-- 2.6 status event feed so far
+RESET
+   event_type   | previous_status | new_status 
+----------------+-----------------+------------
+ STATUS_CHANGED | OFFLINE         | IDLE
+ STATUS_CHANGED | OFFLINE         | IDLE
+ FAULT_RAISED   | IDLE            | FAULT
+ FAULT_CLEARED  | FAULT           | IDLE
+(4 rows)
+
+==============================================================
+3. DISPATCH COMMAND
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 3.1 wrong expected_version (expect CONFLICT)
+                      try                      
+-----------------------------------------------
+ ERR  CONFLICT: expected version 3 but found 2
+(1 row)
+
+-- 3.2 bad command_type (expect INVALID)
+                     try                     
+---------------------------------------------
+ ERR  INVALID: unknown command_type TELEPORT
+(1 row)
+
+-- 3.3 valid dispatch v2 (expect OK, PENDING, equipment -> RUNNING v3)
+                                                                                                                                                                             try                                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "document_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+-- 3.4 SAME idempotency_key retry (expect identical result, no new row)
+                                                                                                                                                                             try                                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "document_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+-- 3.5 command row count for AGV-07 (expect exactly 1)
+RESET
+ agv_commands 
+--------------
+            1
+(1 row)
+
+ agv_status | agv_version 
+------------+-------------
+ RUNNING    |           3
+(1 row)
+
+-- 3.6 tenant-B admin dispatches to tenant-A equipment (expect FORBIDDEN)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                          try                                          
+---------------------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for equipment 58652f6c-46f9-4f87-80f8-6b07630edb80
+(1 row)
+
+==============================================================
+4. COMMAND RESULT REPORTING (gateway)
+==============================================================
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 4.1 ACKNOWLEDGED (cmd v1 -> v2)
+                                                                                                                                                                 try                                                                                                                                                                  
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "ACKNOWLEDGED", "version": 2, "command_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "document_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+-- 4.2 IN_PROGRESS (cmd v2 -> v3)
+                                                                                                                                                                 try                                                                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 3, "command_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "document_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 3}
+(1 row)
+
+-- 4.3 stale version (expect CONFLICT)
+                      try                      
+-----------------------------------------------
+ ERR  CONFLICT: expected version 2 but found 3
+(1 row)
+
+-- 4.4 COMPLETED (cmd v3 -> v4, equipment RUNNING -> IDLE)
+                                                                                                                                                              try                                                                                                                                                              
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 4, "command_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "document_id": "703076bc-532f-4ecc-950c-074b9cc2d5bc", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 4}
+(1 row)
+
+-- 4.5 report on terminal command (expect INVALID)
+                                                try                                                
+---------------------------------------------------------------------------------------------------
+ ERR  INVALID: command 703076bc-532f-4ecc-950c-074b9cc2d5bc is already terminal (status=COMPLETED)
+(1 row)
+
+-- 4.6 unknown command id (expect INVALID)
+                                     try                                      
+------------------------------------------------------------------------------
+ ERR  INVALID: unknown equipment command 00000000-0000-0000-0000-0000000000ff
+(1 row)
+
+-- 4.7 equipment should be IDLE again
+RESET
+ equipment_code | status  | version 
+----------------+---------+---------
+ AGV-07         | IDLE    |       4
+ CONV-09        | OFFLINE |       1
+ SRM-02         | IDLE    |       4
+(3 rows)
+
+==============================================================
+5. FAULT: raise -> in-flight command FAILED -> resolve -> IDLE
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 5.1 dispatch LOAD to SRM-02 with linked receipt (expect OK)
+                                                                                                                                                                             try                                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "c0420ac8-8600-4aa2-9922-c29c5ea908d7", "document_id": "c0420ac8-8600-4aa2-9922-c29c5ea908d7", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 5}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 5.2 gateway marks it IN_PROGRESS
+                                                                                                                                                                 try                                                                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IN_PROGRESS", "version": 2, "command_id": "c0420ac8-8600-4aa2-9922-c29c5ea908d7", "document_id": "c0420ac8-8600-4aa2-9922-c29c5ea908d7", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["report_command_result"], "equipment_status": "RUNNING", "equipment_version": 5}
+(1 row)
+
+-- 5.3 gateway raises MOTOR_OVERHEAT / CRITICAL (expect OK + failed_command_ids)
+                                                                                                                                                                                            try                                                                                                                                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "fault_id": "83a31ebe-c1b1-4b12-bee9-32999b345fff", "document_id": "83a31ebe-c1b1-4b12-bee9-32999b345fff", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["resolve_equipment_fault"], "equipment_status": "FAULT", "equipment_version": 6, "failed_command_ids": ["c0420ac8-8600-4aa2-9922-c29c5ea908d7"]}
+(1 row)
+
+-- 5.4 bad severity (expect INVALID)
+                                try                                
+-------------------------------------------------------------------
+ ERR  INVALID: severity must be one of WARNING, CRITICAL, BLOCKING
+(1 row)
+
+-- 5.5 command should now be FAILED with fault_id, equipment FAULT
+RESET
+ cmd_status | linked_to_fault |             reason             
+------------+-----------------+--------------------------------
+ FAILED     | t               | equipment fault MOTOR_OVERHEAT
+(1 row)
+
+ equipment_code | status | version 
+----------------+--------+---------
+ SRM-02         | FAULT  |       6
+(1 row)
+
+-- 5.6 dispatch to FAULT equipment (expect INVALID)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                   try                                                   
+---------------------------------------------------------------------------------------------------------
+ ERR  INVALID: equipment 9314c28c-7a89-4203-8d62-432f5440711c is in FAULT and cannot accept new commands
+(1 row)
+
+-- 5.7 gateway tries to resolve the fault (expect FORBIDDEN)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                         try                          
+------------------------------------------------------
+ ERR  FORBIDDEN: role cannot resolve equipment faults
+(1 row)
+
+-- 5.8 operator resolves with empty note (expect INVALID)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                    try                    
+-------------------------------------------
+ ERR  INVALID: resolution_note is required
+(1 row)
+
+-- 5.9 operator resolves with wrong version (expect CONFLICT)
+                      try                       
+------------------------------------------------
+ ERR  CONFLICT: expected version 42 but found 1
+(1 row)
+
+-- 5.10 operator resolves properly (expect OK, equipment -> IDLE)
+                                                                                                                                                                                   try                                                                                                                                                                                    
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "RESOLVED", "version": 2, "fault_id": "83a31ebe-c1b1-4b12-bee9-32999b345fff", "warnings": [], "document_id": "83a31ebe-c1b1-4b12-bee9-32999b345fff", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 7}
+(1 row)
+
+-- 5.11 fault + equipment state
+RESET
+  status  | resolution_note | has_resolver | has_ts 
+----------+-----------------+--------------+--------
+ RESOLVED | 센서 교체 완료  | t            | t
+(1 row)
+
+ equipment_code | status | version 
+----------------+--------+---------
+ SRM-02         | IDLE   |       7
+(1 row)
+
+==============================================================
+6. CANCEL COMMAND
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 6.1 dispatch a new command to SRM-02
+                                                                                                                                                                             try                                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "d006a479-eeea-4ed8-97bd-96d542c48681", "document_id": "d006a479-eeea-4ed8-97bd-96d542c48681", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 8}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 6.2 cancel it (expect OK, CANCELLED, equipment back to IDLE)
+                                                                                                                                                                 try                                                                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CANCELLED", "version": 2, "command_id": "d006a479-eeea-4ed8-97bd-96d542c48681", "document_id": "d006a479-eeea-4ed8-97bd-96d542c48681", "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c", "next_actions": ["dispatch_equipment_command"], "equipment_status": "IDLE", "equipment_version": 9}
+(1 row)
+
+-- 6.3 cancel an already terminal command (expect INVALID)
+                                                try                                                
+---------------------------------------------------------------------------------------------------
+ ERR  INVALID: command 703076bc-532f-4ecc-950c-074b9cc2d5bc is already terminal (status=COMPLETED)
+(1 row)
+
+-- 6.4 PROCESS_AGENT may cancel too (dispatch + cancel)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                             try                                                                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "bbc12e7e-b5bf-4c5e-8a0f-572d746ee82d", "document_id": "bbc12e7e-b5bf-4c5e-8a0f-572d746ee82d", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 5}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                 try                                                                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CANCELLED", "version": 2, "command_id": "bbc12e7e-b5bf-4c5e-8a0f-572d746ee82d", "document_id": "bbc12e7e-b5bf-4c5e-8a0f-572d746ee82d", "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80", "next_actions": ["dispatch_equipment_command"], "equipment_status": "IDLE", "equipment_version": 6}
+(1 row)
+
+==============================================================
+7. READ-ONLY STATUS QUERY
+==============================================================
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+-- 7.1 operator queries warehouse A (expect 3 equipment, statuses + versions)
+  code   | status  | version | active | open_faults | recent_events 
+---------+---------+---------+--------+-------------+---------------
+ AGV-07  | IDLE    | 6       | false  |           0 |             3
+ CONV-09 | OFFLINE | 1       | false  |           0 |             0
+ SRM-02  | IDLE    | 9       | false  |           0 |             3
+(3 rows)
+
+-- 7.1b single-equipment query with event detail
+                               jsonb_pretty                                
+---------------------------------------------------------------------------
+ {                                                                        +
+     "count": 1,                                                          +
+     "result": "ok",                                                      +
+     "equipment": [                                                       +
+         {                                                                +
+             "status": "IDLE",                                            +
+             "version": 9,                                                +
+             "zone_code": "ZONE-A",                                       +
+             "open_faults": [                                             +
+             ],                                                           +
+             "equipment_id": "9314c28c-7a89-4203-8d62-432f5440711c",      +
+             "recent_events": [                                           +
+                 {                                                        +
+                     "seq": 17,                                           +
+                     "detail": null,                                      +
+                     "event_id": "bb5aa274-b474-4536-80d5-9515ca3dc27b",  +
+                     "command_id": "d006a479-eeea-4ed8-97bd-96d542c48681",+
+                     "created_at": "2026-07-27T01:53:22.030522+00:00",    +
+                     "event_type": "STATUS_CHANGED",                      +
+                     "new_status": "IDLE",                                +
+                     "previous_status": "RUNNING"                         +
+                 },                                                       +
+                 {                                                        +
+                     "seq": 16,                                           +
+                     "detail": {                                          +
+                         "reason": "operator abort"                       +
+                     },                                                   +
+                     "event_id": "e9799275-3b9d-46c8-95bb-a5c1d0dc09af",  +
+                     "command_id": "d006a479-eeea-4ed8-97bd-96d542c48681",+
+                     "created_at": "2026-07-27T01:53:22.030522+00:00",    +
+                     "event_type": "COMMAND_CANCELLED",                   +
+                     "new_status": "RUNNING",                             +
+                     "previous_status": "RUNNING"                         +
+                 },                                                       +
+                 {                                                        +
+                     "seq": 15,                                           +
+                     "detail": null,                                      +
+                     "event_id": "289f00c6-1136-4217-8b09-8e07959ff11f",  +
+                     "command_id": "d006a479-eeea-4ed8-97bd-96d542c48681",+
+                     "created_at": "2026-07-27T01:53:22.029656+00:00",    +
+                     "event_type": "STATUS_CHANGED",                      +
+                     "new_status": "RUNNING",                             +
+                     "previous_status": "IDLE"                            +
+                 }                                                        +
+             ],                                                           +
+             "equipment_code": "SRM-02",                                  +
+             "equipment_type": "SRM",                                     +
+             "active_commands": [                                         +
+             ],                                                           +
+             "has_active_command": false                                  +
+         }                                                                +
+     ],                                                                   +
+     "tenant_id": "10000000-0000-0000-0000-00000000000a",                 +
+     "warehouse_id": "20000000-0000-0000-0000-00000000000a"               +
+ }
+(1 row)
+
+-- 7.2 tenant-B warehouse from a tenant-A user (expect FORBIDDEN)
+                                     try                                     
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+-- 7.3 direct table select honours RLS (tenant-B admin sees 0 rows)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+ visible_equipment_for_tenant_b 
+--------------------------------
+                              0
+(1 row)
+
+ visible_commands_for_tenant_b 
+-------------------------------
+                             0
+(1 row)
+
+ visible_events_for_tenant_b 
+-----------------------------
+                           0
+(1 row)
+
+ visible_faults_for_tenant_b 
+-----------------------------
+                           0
+(1 row)
+
+-- 7.4 direct writes are denied to authenticated (expect ERR)
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                    try                     
+--------------------------------------------
+ ERR  permission denied for table equipment
+(1 row)
+
+                    try                     
+--------------------------------------------
+ ERR  permission denied for table equipment
+(1 row)
+
+                    try                     
+--------------------------------------------
+ ERR  permission denied for table equipment
+(1 row)
+
+==============================================================
+8. GRANT / AUDIT CHECKS
+==============================================================
+RESET
+-- 8.1 table privileges granted to authenticated/anon (expect SELECT only)
+       table_name        | privs  |    grantee    
+-------------------------+--------+---------------
+ equipment               | SELECT | authenticated
+ equipment_commands      | SELECT | authenticated
+ equipment_faults        | SELECT | authenticated
+ equipment_status_events | SELECT | authenticated
+(4 rows)
+
+-- 8.2 audit coverage per command (all 7 write RPCs must appear)
+            command             |    entity_type    | count 
+--------------------------------+-------------------+-------
+ wms_cancel_equipment_command   | equipment_command |     2
+ wms_dispatch_equipment_command | equipment_command |     4
+ wms_raise_equipment_fault      | equipment_command |     1
+ wms_raise_equipment_fault      | equipment_fault   |     2
+ wms_register_equipment         | equipment         |     3
+ wms_report_command_result      | equipment_command |     4
+ wms_report_command_result      | receipt           |     1
+ wms_report_equipment_status    | equipment         |     2
+ wms_resolve_equipment_fault    | equipment_fault   |     2
+(9 rows)
+
+-- 8.3 fault resolution audit before/after
+ before_status | after_status 
+---------------+--------------
+ OPEN          | RESOLVED
+ OPEN          | RESOLVED
+(2 rows)
+
+-- 8.4 linked-entity audit event from command result reporting
+          command          | entity_type |              entity_id               | cmd_status  
+---------------------------+-------------+--------------------------------------+-------------
+ wms_report_command_result | receipt     | 00000000-0000-0000-0000-0000000000aa | IN_PROGRESS
+(1 row)
+
+-- 8.5 full event feed (deterministic order via seq)
+ seq | equipment_code |      event_type      | previous_status | new_status 
+-----+----------------+----------------------+-----------------+------------
+   1 | AGV-07         | STATUS_CHANGED       | OFFLINE         | IDLE
+   2 | SRM-02         | STATUS_CHANGED       | OFFLINE         | IDLE
+   3 | SRM-02         | FAULT_RAISED         | IDLE            | FAULT
+   4 | SRM-02         | FAULT_CLEARED        | FAULT           | IDLE
+   5 | AGV-07         | STATUS_CHANGED       | IDLE            | RUNNING
+   6 | AGV-07         | COMMAND_ACKNOWLEDGED | RUNNING         | RUNNING
+   7 | AGV-07         | COMMAND_PROGRESS     | RUNNING         | RUNNING
+   8 | AGV-07         | COMMAND_COMPLETED    | RUNNING         | RUNNING
+   9 | AGV-07         | STATUS_CHANGED       | RUNNING         | IDLE
+  10 | SRM-02         | STATUS_CHANGED       | IDLE            | RUNNING
+  11 | SRM-02         | COMMAND_PROGRESS     | RUNNING         | RUNNING
+  12 | SRM-02         | COMMAND_FAILED       | RUNNING         | FAULT
+  13 | SRM-02         | FAULT_RAISED         | RUNNING         | FAULT
+  14 | SRM-02         | FAULT_CLEARED        | FAULT           | IDLE
+  15 | SRM-02         | STATUS_CHANGED       | IDLE            | RUNNING
+  16 | SRM-02         | COMMAND_CANCELLED    | RUNNING         | RUNNING
+  17 | SRM-02         | STATUS_CHANGED       | RUNNING         | IDLE
+  18 | AGV-07         | STATUS_CHANGED       | IDLE            | RUNNING
+  19 | AGV-07         | COMMAND_CANCELLED    | RUNNING         | RUNNING
+  20 | AGV-07         | STATUS_CHANGED       | RUNNING         | IDLE
+(20 rows)
+

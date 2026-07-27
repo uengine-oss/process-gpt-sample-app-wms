@@ -1,0 +1,562 @@
+
+### set_equipment_simulation_mode (as PROCESS_AGENT)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot change equipment simulation mode', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### register_simulation_profile (as PROCESS_AGENT)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot manage simulation profiles', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_simulation_profile
+{
+  "result": "ok",
+  "document": {
+    "count": 5,
+    "result": "ok",
+    "equipment": [
+      {
+        "zone_code": "ZONE-MCP-TWIN-89C",
+        "equipment_id": "8c965784-a162-4450-ac3a-46660e460c51",
+        "is_simulated": false,
+        "equipment_code": "MCP-TWIN-89C22F-REAL",
+        "equipment_type": "AGV",
+        "active_schedule": null,
+        "equipment_status": "IDLE",
+        "effective_profile": {
+          "source": "SYSTEM_DEFAULT",
+          "jam_rate": 0,
+          "is_default": true,
+          "profile_id": null,
+          "failure_rate": 0.05,
+          "profile_status": null,
+          "profile_version": null,
+          "ack_delay_ms_max": 1500,
+          "ack_delay_ms_min": 500,
+          "progress_delay_ms_max": 3000,
+          "progress_delay_ms_min": 1000,
+          "completion_delay_ms_max": 5000,
+          "completion_delay_ms_min": 2000
+        },
+        "equipment_version": 2,
+        "registered_profile": null
+      },
+      {
+        "zone_code": "ZONE-MCP-TWIN-89C",
+        "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+        "is_simulated": true,
+        "equipment_code": "MCP-TWIN-89C22F-SIM",
+        "equipment_type": "AGV",
+        "active_schedule": null,
+        "equipment_status": "IDLE",
+        "effective_profile": {
+          "source": "REGISTERED",
+          "jam_rate": 0,
+          "is_default": false,
+          "profile_id": "556425b9-6bc2-49ad-9996-074328560018",
+          "failure_rate": 0,
+          "profile_status": "ACTIVE",
+          "profile_version": 1,
+          "ack_delay_ms_max": 0,
+          "ack_delay_ms_min": 0,
+          "progress_delay_ms_max": 0,
+          "progress_delay_ms_min": 0,
+          "completion_delay_ms_max": 0,
+          "completion_delay_ms_min": 0
+        },
+        "equipment_ve
+
+### dispatch_equipment_command (simulated AGV)
+{
+  "result": "ok",
+  "document_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "equipment_status": "RUNNING",
+    "equipment_version": 4
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### dispatch_equipment_command (real AGV)
+{
+  "result": "ok",
+  "document_id": "f733d64c-c580-4a0d-9070-fb551306c26a",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "8c965784-a162-4450-ac3a-46660e460c51",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### get_due_simulation_actions (before planning)
+{
+  "result": "ok",
+  "document": {
+    "as_of": "2026-07-27T09:03:24.563788+00:00",
+    "result": "ok",
+    "due_count": 0,
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "due_actions": [],
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a",
+    "unplanned_count": 1,
+    "unplanned_commands": [
+      {
+        "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+        "created_at": "2026-07-27T09:03:24.422325+00:00",
+        "command_type": "MOVE",
+        "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+        "command_status": "PENDING",
+        "equipment_code": "MCP-TWIN-89C22F-SIM",
+        "command_version": 1
+      }
+    ]
+  }
+}
+
+### plan_simulated_command
+{
+  "result": "ok",
+  "document_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+  "status": "ACKNOWLEDGED",
+  "version": 1,
+  "links": {
+    "schedule_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+    "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "next_status": "ACKNOWLEDGED",
+    "next_run_at": "2026-07-27T09:03:24.619967+00:00",
+    "planned_terminal_status": "COMPLETED",
+    "planned_detail": {
+      "outcome": "SUCCESS",
+      "simulated": true
+    },
+    "already_planned": false
+  },
+  "next_actions": [
+    "get_due_simulation_actions",
+    "advance_simulated_command"
+  ]
+}
+
+### plan_simulated_command (replay)
+{
+  "result": "ok",
+  "document_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+  "status": "ACKNOWLEDGED",
+  "version": 1,
+  "links": {
+    "schedule_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+    "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "next_status": "ACKNOWLEDGED",
+    "next_run_at": "2026-07-27T09:03:24.619967+00:00",
+    "planned_terminal_status": "COMPLETED",
+    "planned_detail": {
+      "outcome": "SUCCESS",
+      "simulated": true
+    },
+    "already_planned": true
+  },
+  "next_actions": [
+    "get_due_simulation_actions",
+    "advance_simulated_command"
+  ]
+}
+
+### plan_simulated_command (real AGV)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': \"INVALID: equipment MCP-TWIN-89C22F-REAL is not in simulation mode — its commands are the real gateway's job\", 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_simulation_schedule_status
+{
+  "result": "ok",
+  "document": {
+    "count": 2,
+    "result": "ok",
+    "due_only": false,
+    "schedules": [
+      {
+        "is_due": true,
+        "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+        "created_at": "2026-07-27T09:03:24.619967+00:00",
+        "updated_at": "2026-07-27T09:03:24.619967+00:00",
+        "next_run_at": "2026-07-27T09:03:24.619967+00:00",
+        "next_status": "ACKNOWLEDGED",
+        "schedule_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+        "command_type": "MOVE",
+        "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+        "is_simulated": true,
+        "command_status": "PENDING",
+        "equipment_code": "MCP-TWIN-89C22F-SIM",
+        "equipment_type": "AGV",
+        "planned_detail": {
+          "outcome": "SUCCESS",
+          "simulated": true
+        },
+        "profile_source": "REGISTERED",
+        "command_version": 1,
+        "planned_terminal_status": "COMPLETED"
+      },
+      {
+        "is_due": false,
+        "command_id": "18dc9833-efad-4375-b2ef-06684ad70fa5",
+        "created_at": "2026-07-27T09:03:23.096114+00:00",
+        "updated_at": "2026-07-27T09:03:23.096114+00:00",
+        "next_run_at": "2026-07-27T09:04:23.096114+00:00",
+        "next_status": "ACKNOWLEDGED",
+        "schedule_id": "af7cf199-5627-4655-8fe5-cb9934088f00",
+        "command_type": "MOVE",
+        "equipment_id": "bafd3718-6f9c-4575-b5cb-17f28559018c",
+        "is_simulated": true,
+        "command_status": "PENDING",
+        "equipment_code": "SIM-TWIN-REAL",
+        "equipment_type": "AGV",
+        "planned_detail": {
+          "outcome": "SUCCESS",
+          "simulated": true
+        },
+        "profile_source": "REGISTERED",
+        "command_version": 1,
+        "planned_terminal_status": "COMPLETED"
+      }
+    ],
+   
+
+### advance_simulated_command -> ACKNOWLEDGED
+{
+  "result": "ok",
+  "document_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+  "status": "ACKNOWLEDGED",
+  "version": 2,
+  "warnings": [],
+  "links": {
+    "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "reported_status": "ACKNOWLEDGED",
+    "reported_detail": {
+      "phase": "ACKNOWLEDGED",
+      "simulated": true
+    },
+    "equipment_status": "RUNNING",
+    "plan_remaining": true,
+    "next_status": "IN_PROGRESS",
+    "next_run_at": "2026-07-27T09:03:24.880583+00:00"
+  },
+  "next_actions": [
+    "get_due_simulation_actions",
+    "advance_simulated_command"
+  ]
+}
+
+### advance_simulated_command -> IN_PROGRESS
+{
+  "result": "ok",
+  "document_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+  "status": "IN_PROGRESS",
+  "version": 3,
+  "warnings": [],
+  "links": {
+    "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "reported_status": "IN_PROGRESS",
+    "reported_detail": {
+      "phase": "IN_PROGRESS",
+      "simulated": true
+    },
+    "equipment_status": "RUNNING",
+    "plan_remaining": true,
+    "next_status": "COMPLETED",
+    "next_run_at": "2026-07-27T09:03:24.945904+00:00"
+  },
+  "next_actions": [
+    "get_due_simulation_actions",
+    "advance_simulated_command"
+  ]
+}
+
+### advance_simulated_command -> COMPLETED
+{
+  "result": "ok",
+  "document_id": "5eb27594-6f92-49b3-ab83-d6bce159446f",
+  "status": "COMPLETED",
+  "version": 4,
+  "warnings": [],
+  "links": {
+    "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+    "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+    "reported_status": "COMPLETED",
+    "reported_detail": {
+      "outcome": "SUCCESS",
+      "simulated": true
+    },
+    "equipment_status": "IDLE",
+    "plan_remaining": false,
+    "next_status": null,
+    "next_run_at": null
+  },
+  "next_actions": [
+    "get_equipment_status",
+    "get_simulation_schedule_status"
+  ]
+}
+
+### advance_simulated_command (no plan left)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: no simulation plan for command af6cdb8f-d944-4394-b5e0-696aaba113c2 — plan it first', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_equipment_status (simulated AGV)
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "result": "ok",
+    "equipment": [
+      {
+        "status": "IDLE",
+        "version": 5,
+        "zone_code": "ZONE-MCP-TWIN-89C",
+        "open_faults": [],
+        "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+        "recent_events": [
+          {
+            "seq": 22,
+            "detail": null,
+            "event_id": "0c5519e9-cf81-4adf-a20a-4d433ff7b473",
+            "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+            "created_at": "2026-07-27T09:03:25.00617+00:00",
+            "event_type": "STATUS_CHANGED",
+            "new_status": "IDLE",
+            "previous_status": "RUNNING"
+          },
+          {
+            "seq": 21,
+            "detail": {
+              "outcome": "SUCCESS",
+              "simulated": true
+            },
+            "event_id": "be809f9f-3326-4879-a63c-5c264d7838f3",
+            "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+            "created_at": "2026-07-27T09:03:25.00617+00:00",
+            "event_type": "COMMAND_COMPLETED",
+            "new_status": "RUNNING",
+            "previous_status": "RUNNING"
+          },
+          {
+            "seq": 20,
+            "detail": {
+              "phase": "IN_PROGRESS",
+              "simulated": true
+            },
+            "event_id": "c8853ff2-039b-4ec5-a242-9fa0bad2f1aa",
+            "command_id": "af6cdb8f-d944-4394-b5e0-696aaba113c2",
+            "created_at": "2026-07-27T09:03:24.945904+00:00",
+            "event_type": "COMMAND_PROGRESS",
+            "new_status": "RUNNING",
+            "previous_status": "RUNNING"
+          },
+          {
+            "seq": 19,
+            "detail": {
+              "phase": "ACKNOWLEDGED",
+              "simulated": true
+            },
+            "event
+
+### create_simulation_scenario (empty equipment set)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: equipment_ids must not be empty', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### create_simulation_scenario
+{
+  "result": "ok",
+  "document_id": "f26aa454-e923-4a22-b6fc-647e7e8b8b2a",
+  "status": "DRAFT",
+  "version": 1,
+  "links": {
+    "scenario_id": "f26aa454-e923-4a22-b6fc-647e7e8b8b2a",
+    "equipment_count": 2,
+    "command_count": 9
+  },
+  "next_actions": [
+    "run_simulation_scenario",
+    "get_simulation_scenario_status"
+  ]
+}
+
+### run_simulation_scenario
+{
+  "result": "ok",
+  "document_id": "da14d385-b828-42af-9e04-c11b577a1780",
+  "status": "RUN",
+  "version": 2,
+  "warnings": [
+    "DEFAULT_PROFILE_APPLIED: MCP-TWIN-89C22F-REAL — no registered ACTIVE simulation profile, system defaults used",
+    "OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee"
+  ],
+  "links": {
+    "run_id": "da14d385-b828-42af-9e04-c11b577a1780",
+    "scenario_id": "f26aa454-e923-4a22-b6fc-647e7e8b8b2a",
+    "projected_completion_at": "2026-07-27T09:03:41.726319+00:00",
+    "projected_duration_ms": 16250,
+    "projected_round_count": 5,
+    "projected_failure_count": 0,
+    "assumptions": {
+      "model": "ceil(command_count / equipment_count) * mean(ack+progress+completion)",
+      "equipment": [
+        {
+          "profile": {
+            "source": "REGISTERED",
+            "jam_rate": 0,
+            "is_default": false,
+            "profile_id": "556425b9-6bc2-49ad-9996-074328560018",
+            "failure_rate": 0,
+            "profile_status": "ACTIVE",
+            "profile_version": 1,
+            "ack_delay_ms_max": 0,
+            "ack_delay_ms_min": 0,
+            "progress_delay_ms_max": 0,
+            "progress_delay_ms_min": 0,
+            "completion_delay_ms_max": 0,
+            "completion_delay_ms_min": 0
+          },
+          "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+          "is_simulated": true,
+          "equipment_code": "MCP-TWIN-89C22F-SIM",
+          "equipment_type": "AGV",
+          "equipment_status": "IDLE"
+        },
+        {
+          "profile": {
+            "source": "SYSTEM_DEFAULT",
+            "jam_rate": 0,
+            "is_default": true,
+            "profile_id": null,
+            "fail
+
+### run_simulation_scenario (again)
+{
+  "result": "ok",
+  "document_id": "b6a625d6-ca45-46b4-91df-826ddaf8e549",
+  "status": "RUN",
+  "version": 3,
+  "warnings": [
+    "DEFAULT_PROFILE_APPLIED: MCP-TWIN-89C22F-REAL — no registered ACTIVE simulation profile, system defaults used",
+    "OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee"
+  ],
+  "links": {
+    "run_id": "b6a625d6-ca45-46b4-91df-826ddaf8e549",
+    "scenario_id": "f26aa454-e923-4a22-b6fc-647e7e8b8b2a",
+    "projected_completion_at": "2026-07-27T09:03:41.833186+00:00",
+    "projected_duration_ms": 16250,
+    "projected_round_count": 5,
+    "projected_failure_count": 0,
+    "assumptions": {
+      "model": "ceil(command_count / equipment_count) * mean(ack+progress+completion)",
+      "equipment": [
+        {
+          "profile": {
+            "source": "REGISTERED",
+            "jam_rate": 0,
+            "is_default": false,
+            "profile_id": "556425b9-6bc2-49ad-9996-074328560018",
+            "failure_rate": 0,
+            "profile_status": "ACTIVE",
+            "profile_version": 1,
+            "ack_delay_ms_max": 0,
+            "ack_delay_ms_min": 0,
+            "progress_delay_ms_max": 0,
+            "progress_delay_ms_min": 0,
+            "completion_delay_ms_max": 0,
+            "completion_delay_ms_min": 0
+          },
+          "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+          "is_simulated": true,
+          "equipment_code": "MCP-TWIN-89C22F-SIM",
+          "equipment_type": "AGV",
+          "equipment_status": "IDLE"
+        },
+        {
+          "profile": {
+            "source": "SYSTEM_DEFAULT",
+            "jam_rate": 0,
+            "is_default": true,
+            "profile_id": null,
+            "fail
+
+### get_simulation_scenario_status
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "result": "ok",
+    "scenarios": [
+      {
+        "name": "MCP-TWIN-89C22F two machines",
+        "runs": [
+          {
+            "run_id": "b6a625d6-ca45-46b4-91df-826ddaf8e549",
+            "warnings": [
+              "DEFAULT_PROFILE_APPLIED: MCP-TWIN-89C22F-REAL — no registered ACTIVE simulation profile, system defaults used",
+              "OPTIMISTIC_ESTIMATE: rounds = ceil(command_count / equipment_count), no queueing, no retries, no priority inversion — this is an approximation, not a guarantee"
+            ],
+            "created_at": "2026-07-27T09:03:25.583186+00:00",
+            "assumptions": {
+              "model": "ceil(command_count / equipment_count) * mean(ack+progress+completion)",
+              "equipment": [
+                {
+                  "profile": {
+                    "source": "REGISTERED",
+                    "jam_rate": 0,
+                    "is_default": false,
+                    "profile_id": "556425b9-6bc2-49ad-9996-074328560018",
+                    "failure_rate": 0,
+                    "profile_status": "ACTIVE",
+                    "profile_version": 1,
+                    "ack_delay_ms_max": 0,
+                    "ack_delay_ms_min": 0,
+                    "progress_delay_ms_max": 0,
+                    "progress_delay_ms_min": 0,
+                    "completion_delay_ms_max": 0,
+                    "completion_delay_ms_min": 0
+                  },
+                  "equipment_id": "077d3f61-adb7-4f84-b9d4-6a6507b9a177",
+                  "is_simulated": true,
+                  "equipment_code": "MCP-TWIN-89C22F-SIM",
+                  "equipment_type": "AGV",
+                  "equipment_status": "IDLE"
+                },
+                {
+                  "profile": 
+
+OK — digital-twin simulation MCP round-trip passed

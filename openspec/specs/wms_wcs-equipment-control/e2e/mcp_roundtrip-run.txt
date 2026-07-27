@@ -1,0 +1,182 @@
+TOOLS: ['cancel_equipment_command', 'confirm_po', 'create_rfq', 'dispatch_equipment_command', 'get_availability', 'get_equipment_status', 'inspect', 'putaway', 'raise_equipment_fault', 'receive', 'register_arrival', 'register_equipment', 'report_command_result', 'report_equipment_status', 'request_approval', 'resolve_equipment_fault', 'scrap']
+
+### register_equipment as PROCESS_AGENT (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot register equipment', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### get_equipment_status
+{
+  "result": "ok",
+  "document": {
+    "count": 5,
+    "result": "ok",
+    "equipment": [
+      {
+        "status": "IDLE",
+        "version": 6,
+        "zone_code": "ZONE-B",
+        "open_faults": [],
+        "equipment_id": "58652f6c-46f9-4f87-80f8-6b07630edb80",
+        "recent_events": [
+          {
+            "seq": 20,
+            "detail": null,
+            "event_id": "61b404cb-ee48-4dbf-9e31-d9c9de1eea21",
+            "command_id": "bbc12e7e-b5bf-4c5e-8a0f-572d746ee82d",
+            "created_at": "2026-07-27T01:53:22.033202+00:00",
+            "event_type": "STATUS_CHANGED",
+            "new_status": "IDLE",
+            "previous_status": "RUNNING"
+          },
+          {
+            "seq": 19,
+            "detail": {
+              "reason": null
+            },
+            "event_id": "4f947be8-73e7-4f43-b3fe-2e07065d0f84",
+            "command_id": "bbc12e7e-b5bf-4c5e-8a0f
+
+### report_equipment_status OFFLINE->IDLE (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+  "status": "IDLE",
+  "version": 2,
+  "previous_status": "OFFLINE",
+  "next_actions": [
+    "dispatch_equipment_command",
+    "get_equipment_status"
+  ]
+}
+
+### dispatch_equipment_command MOVE (PROCESS_AGENT)
+{
+  "result": "ok",
+  "document_id": "3fae9a83-6d60-4807-b2a5-b5413ce31901",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### dispatch with stale version (expect CONFLICT)
+{
+  "result": "error",
+  "error_kind": "CONFLICT",
+  "http_status_equivalent": 409,
+  "message": "{'message': 'CONFLICT: expected version 1 but found 3', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### report_command_result ACKNOWLEDGED (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "3fae9a83-6d60-4807-b2a5-b5413ce31901",
+  "status": "ACKNOWLEDGED",
+  "version": 2,
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result"
+  ]
+}
+
+### report_command_result IN_PROGRESS (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "3fae9a83-6d60-4807-b2a5-b5413ce31901",
+  "status": "IN_PROGRESS",
+  "version": 3,
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "RUNNING",
+    "equipment_version": 3
+  },
+  "next_actions": [
+    "report_command_result"
+  ]
+}
+
+### report_command_result COMPLETED (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "3fae9a83-6d60-4807-b2a5-b5413ce31901",
+  "status": "COMPLETED",
+  "version": 4,
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "IDLE",
+    "equipment_version": 4
+  },
+  "next_actions": [
+    "get_equipment_status"
+  ]
+}
+
+### dispatch LOAD then raise fault
+{
+  "result": "ok",
+  "document_id": "d0ef45c7-115b-4ba4-b892-350b7776a95b",
+  "status": "PENDING",
+  "version": 1,
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "RUNNING",
+    "equipment_version": 5
+  },
+  "next_actions": [
+    "report_command_result",
+    "cancel_equipment_command"
+  ]
+}
+
+### raise_equipment_fault (WCS_GATEWAY)
+{
+  "result": "ok",
+  "document_id": "525803a3-8ce4-4c1d-8b79-23098a9bea4b",
+  "status": "OPEN",
+  "version": 1,
+  "failed_command_ids": [
+    "d0ef45c7-115b-4ba4-b892-350b7776a95b"
+  ],
+  "links": {
+    "equipment_id": "dd6c19f1-7ed9-453b-a94e-6be46160d75e",
+    "equipment_status": "FAULT",
+    "equipment_version": 6
+  },
+  "next_actions": [
+    "resolve_equipment_fault"
+  ]
+}
+
+### resolve_equipment_fault as PROCESS_AGENT (expect FORBIDDEN)
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot resolve equipment faults', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### cancel already-FAILED command (expect INVALID)
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: command d0ef45c7-115b-4ba4-b892-350b7776a95b is already terminal (status=FAILED)', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+
+ALL MCP ASSERTIONS PASSED

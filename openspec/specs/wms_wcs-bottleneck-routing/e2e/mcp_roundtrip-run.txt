@@ -1,0 +1,202 @@
+fixture: MCP-RTE-30AF61-A (clean) / MCP-RTE-30AF61-B (2 recent faults) / MCP-RTE-30AF61-C (excluded) in ZONE-MCP-RTE-30A
+TOOLS: ['cancel_equipment_command', 'cancel_work_order', 'clear_equipment_routing_exclusion', 'confirm_po', 'create_rfq', 'create_sortation_profile', 'create_work_order', 'dispatch_equipment_command', 'exclude_equipment_from_routing', 'get_availability', 'get_equipment_routing_status', 'get_equipment_status', 'get_sortation_profile', 'get_work_order_status', 'inspect', 'open_dispatch_wave', 'putaway', 'raise_equipment_fault', 'receive', 'register_arrival', 'register_equipment', 'register_wcs_routing_policy', 'release_dispatch_wave', 'report_command_result', 'report_equipment_status', 'request_approval', 'resolve_equipment_fault', 'retry_work_order_dispatch', 'scrap', 'update_sortation_profile', 'update_wcs_routing_policy']
+
+### get_equipment_routing_status (whole warehouse)
+{
+  "result": "ok",
+  "document": {
+    "count": 8,
+    "items": [
+      {
+        "routable": true,
+        "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",
+        "zone_code": "ZONE-MCP-RTE-30A",
+        "is_excluded": false,
+        "queue_depth": 0,
+        "equipment_id": "d0b3236c-ff6e-466b-bb81-012a0dd930ce",
+        "is_bottleneck": false,
+        "equipment_code": "MCP-RTE-30AF61-A",
+        "equipment_type": "AGV",
+        "active_override": null,
+        "equipment_status": "IDLE",
+        "threshold_source": "POLICY",
+        "equipment_version": 2,
+        "bottleneck_reasons": [],
+        "recent_fault_count": 0,
+        "recent_completed_count": 0,
+        "resolved_fault_count_threshold": 2,
+        "resolved_queue_depth_threshold": 3
+      },
+      {
+        "routable": true,
+        "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",
+        "zone_code": "ZONE-MCP-RTE-30A",
+        "is_excluded": false,
+        "queue_depth": 0,
+        "equipment_id": "b2f5f6a2-eb92-4386-94c3-755d88ca4b8d",
+        "is_bottleneck": true,
+        "equipment_code": "MCP-RTE-30AF61-B",
+        "equipment_type": "AGV",
+        "active_override": null,
+        "equipment_status": "IDLE",
+        "threshold_source": "POLICY",
+        "equipment_version": 6,
+        "bottleneck_reasons": [
+          "FAULT_FREQUENCY_EXCEEDED"
+        ],
+        "recent_fault_count": 2,
+        "recent_completed_count": 0,
+        "resolved_fault_count_threshold": 2,
+        "resolved_queue_depth_threshold": 3
+      },
+      {
+        "routable": false,
+        "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",
+        "zone_code": "ZONE-MCP-RTE-30A",
+        "is_excluded": true,
+        "queue_depth": 0,
+        "equipment_id": "52b06789-5a0d-467f-a9d5-3f4fa61db536",
+        "is_bott
+
+### register_wcs_routing_policy as PROCESS_AGENT
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot manage wcs routing policies', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### update_wcs_routing_policy as PROCESS_AGENT
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: unknown wcs routing policy 5e6ee05e-d9d9-438a-80ab-6fb3a4634eb1', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### exclude_equipment_from_routing as PROCESS_AGENT
+{
+  "result": "error",
+  "error_kind": "FORBIDDEN",
+  "http_status_equivalent": 403,
+  "message": "{'message': 'FORBIDDEN: role cannot exclude equipment from routing', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### clear_equipment_routing_exclusion as PROCESS_AGENT
+{
+  "result": "error",
+  "error_kind": "INVALID",
+  "http_status_equivalent": 422,
+  "message": "{'message': 'INVALID: unknown routing exclusion 56773bf1-6a04-479e-bf76-9e3029b02fb3', 'code': 'P0001', 'hint': None, 'details': None}"
+}
+
+### exclude_equipment_from_routing (dry_run)
+{
+  "result": "dry_run",
+  "would_call": "wms_exclude_equipment_from_routing",
+  "input": {
+    "equipment_id": "d0b3236c-ff6e-466b-bb81-012a0dd930ce",
+    "reason": "정비 예정"
+  }
+}
+
+### create_work_order (PROCESS_AGENT, WAVELESS)
+{
+  "result": "ok",
+  "document_id": "e332b920-bf7b-44d4-bb2e-c396e86e8de4",
+  "status": "DISPATCHED",
+  "version": 2,
+  "links": {
+    "equipment_id": "d0b3236c-ff6e-466b-bb81-012a0dd930ce",
+    "equipment_code": "MCP-RTE-30AF61-A",
+    "equipment_command_id": "5d29122f-3dab-40be-a66e-4de0ea075fcf"
+  },
+  "warnings": [],
+  "next_actions": [
+    "get_work_order_status",
+    "cancel_work_order"
+  ]
+}
+
+### create_work_order again (only the flaky AGV is free)
+{
+  "result": "ok",
+  "document_id": "348df119-e413-4c63-a17b-f7576401d4e5",
+  "status": "DISPATCHED",
+  "version": 2,
+  "links": {
+    "equipment_id": "b2f5f6a2-eb92-4386-94c3-755d88ca4b8d",
+    "equipment_code": "MCP-RTE-30AF61-B",
+    "equipment_command_id": "6456cab1-a439-4154-9556-df22de35a481"
+  },
+  "warnings": [],
+  "next_actions": [
+    "get_work_order_status",
+    "cancel_work_order"
+  ]
+}
+
+### create_work_order a third time (only the EXCLUDED AGV is free)
+{
+  "result": "ok",
+  "document_id": "6319b43e-fccd-44f7-8800-12043d419a8d",
+  "status": "QUEUED",
+  "version": 1,
+  "links": {},
+  "warnings": [
+    "NO_EQUIPMENT_AVAILABLE"
+  ],
+  "next_actions": [
+    "retry_work_order_dispatch"
+  ]
+}
+
+### get_equipment_routing_status (after dispatching)
+{
+  "result": "ok",
+  "document": {
+    "count": 1,
+    "items": [
+      {
+        "routable": false,
+        "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",
+        "zone_code": "ZONE-MCP-RTE-30A",
+        "is_excluded": false,
+        "queue_depth": 1,
+        "equipment_id": "b2f5f6a2-eb92-4386-94c3-755d88ca4b8d",
+        "is_bottleneck": true,
+        "equipment_code": "MCP-RTE-30AF61-B",
+        "equipment_type": "AGV",
+        "active_override": null,
+        "equipment_status": "RUNNING",
+        "threshold_source": "POLICY",
+        "equipment_version": 7,
+        "bottleneck_reasons": [
+          "FAULT_FREQUENCY_EXCEEDED"
+        ],
+        "recent_fault_count": 2,
+        "recent_completed_count": 0,
+        "resolved_fault_count_threshold": 2,
+        "resolved_queue_depth_threshold": 3
+      }
+    ],
+    "result": "ok",
+    "policies": [
+      {
+        "version": 3,
+        "policy_id": "6361ac57-e0f2-409e-8905-44dfca7ee281",
+        "updated_at": "2026-07-27T03:36:17.285614+00:00",
+        "equipment_type": "AGV",
+        "fault_count_threshold": 2,
+        "queue_depth_threshold": 3
+      }
+    ],
+    "tenant_id": "10000000-0000-0000-0000-00000000000a",
+    "warehouse_id": "20000000-0000-0000-0000-00000000000a",
+    "observation_window": "30 minutes",
+    "default_fault_count_threshold": 1,
+    "default_queue_depth_threshold": 3
+  }
+}
+
+OK — bottleneck-routing MCP round-trip passed

@@ -23,11 +23,26 @@ out, and the bottom of the repo-root `tasks.md`'s copy for what's deferred.
 
 - `supabase/` — the `wms` Postgres schema, RLS policies, and the 9 command
   RPCs, plus demo seed data (2 tenants, 1 warehouse each, one user per role).
+  `20260727_wcs_equipment_control.sql` adds the WCS equipment-control
+  contract (equipment registry, command dispatch, status/event feed, faults)
+  on top — see `openspec/specs/wms_wcs-equipment-control/e2e/` for its
+  simulator and verification runs, and
+  `openspec/specs/wms_wcs-equipment-control/docs/` for the Korean operator
+  manual built from the Playwright screenshots.
+  `20260728_wes_material_flow_control.sql` (dispatch waves + work orders) and
+  `20260729_wcs_sortation_logic.sql` (per-sorter tuning profiles, the
+  `DIVERT`/`SET_SPEED` payload contract and automatic `SORTATION_JAM`
+  escalation) and `20260730_wcs_bottleneck_routing.sql` (threshold-based
+  bottleneck detection over the command queue and fault log, manual routing
+  exclusions, and the takeover of the work-order candidate-selection step)
+  follow the same layout — each has its own `e2e/` verification bundle and
+  `docs/` manual under `openspec/specs/`.
 - `mcp/` — `wms-mcp`, a FastMCP server (same pattern as `services/office-mcp`)
   exposing the RPCs as MCP tools for ProcessGPT to call.
 - `frontend/` — `wms-frontend`, a Vue 3 + Vite + TypeScript app with one
   screen per stage of the flow (Overview, Replenishment, Purchase Orders,
-  Receiving, Quality).
+  Receiving, Quality) plus the automation screens (WCS Equipment, WCS Monitor,
+  WCS Sortation, WCS Routing, WES Dispatch).
 - `docs/` — the task-1 baseline/contracts artifacts this slice was built from.
 
 ## Running locally
@@ -56,5 +71,8 @@ cd frontend && npx playwright install chromium && npm run test:e2e
 
 Demo logins (password `Demo1234!` for all): `admin-a@demo.local`,
 `buyer-a@demo.local`, `approver-a@demo.local`, `inbound-a@demo.local`,
-`quality-a@demo.local`, `admin-b@demo.local` (tenant B, for the
-cross-tenant RLS-isolation demo).
+`quality-a@demo.local`, `wh-manager-a@demo.local`, `wcs-operator-a@demo.local`,
+`wcs-gateway-a@demo.local` (equipment-side service identity),
+`auditor-a@demo.local` (read-only AUDITOR — the only login that reaches
+`/operations/audit-log`, and the only one with no write role anywhere),
+`admin-b@demo.local` (tenant B, for the cross-tenant RLS-isolation demo).

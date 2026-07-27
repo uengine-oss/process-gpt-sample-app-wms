@@ -1,17 +1,63 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
 
-const navLinks = [
-  { to: '/overview', label: 'Overview' },
-  { to: '/replenishment', label: 'Replenishment' },
-  { to: '/procurement/purchase-orders', label: 'Purchase Orders' },
-  { to: '/inbound/receipts', label: 'Receiving' },
-  { to: '/quality/inspections', label: 'Quality' },
-]
+// Grouped because a flat list of 13 was getting hard to scan: the WMS business
+// documents first (the docs/02-contracts.md slice, plus the yard/dock contract
+// that hangs off Receiving), then the automation-side WCS/WES screens, then the
+// oversight screens that look BACK at what the other two produced.
+//
+// A link may carry `roles`, in which case it is only rendered for those roles.
+// So far exactly one does — the audit log, which is WMS_ADMIN / AUDITOR only.
+// Hiding it is a courtesy to the other roles, not a control: the route guard
+// bounces a direct URL and the RPCs return FORBIDDEN under both.
+const allNavGroups = [
+  {
+    label: 'WMS',
+    links: [
+      { to: '/overview', label: 'Overview' },
+      { to: '/replenishment', label: 'Replenishment' },
+      { to: '/procurement/purchase-orders', label: 'Purchase Orders' },
+      { to: '/inbound/receipts', label: 'Receiving' },
+      { to: '/inbound/dock-schedule', label: 'Dock Schedule' },
+      { to: '/quality/inspections', label: 'Quality' },
+      { to: '/labor', label: 'Labor' },
+      { to: '/slotting', label: 'Slotting' },
+      { to: '/agent/decisions', label: 'Agent Decisions' },
+    ],
+  },
+  {
+    label: 'WCS / WES',
+    links: [
+      { to: '/wcs/equipment', label: 'WCS Equipment' },
+      { to: '/wcs/monitor', label: 'WCS Monitor' },
+      { to: '/wcs/sortation', label: 'WCS Sortation' },
+      { to: '/wcs/routing', label: 'WCS Routing' },
+      { to: '/wcs/sequential-dispatch', label: 'WCS Sequencing' },
+      { to: '/wcs/simulation', label: 'WCS Simulation' },
+      { to: '/wes/dispatch', label: 'WES Dispatch' },
+    ],
+  },
+  {
+    label: 'Oversight',
+    links: [
+      { to: '/operations/audit-log', label: 'Audit Log', roles: ['WMS_ADMIN', 'AUDITOR'] },
+    ],
+  },
+] as { label: string; links: { to: string; label: string; roles?: string[] }[] }[]
+
+const navGroups = computed(() =>
+  allNavGroups
+    .map((g) => ({
+      ...g,
+      links: g.links.filter((l) => !l.roles || l.roles.includes(auth.currentRole ?? '')),
+    }))
+    .filter((g) => g.links.length > 0),
+)
 
 async function onTenantChange(event: Event) {
   const tenantId = (event.target as HTMLSelectElement).value
@@ -40,7 +86,10 @@ async function onTenantChange(event: Event) {
     </header>
     <div class="body">
       <nav class="sidenav">
-        <router-link v-for="link in navLinks" :key="link.to" :to="link.to">{{ link.label }}</router-link>
+        <template v-for="group in navGroups" :key="group.label">
+          <div class="nav-group">{{ group.label }}</div>
+          <router-link v-for="link in group.links" :key="link.to" :to="link.to">{{ link.label }}</router-link>
+        </template>
       </nav>
       <main class="content">
         <router-view />
@@ -122,6 +171,17 @@ body {
   border-radius: 6px;
   color: var(--ink);
   text-decoration: none;
+}
+.nav-group {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.75rem 0.75rem 0.25rem;
+}
+.nav-group:first-child {
+  padding-top: 0;
 }
 .sidenav a.router-link-active {
   background: #eef2ff;

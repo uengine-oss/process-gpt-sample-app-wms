@@ -1,0 +1,786 @@
+
+==============================================================
+A. Schema shape
+==============================================================
+-- A1 the five new tables exist with RLS enabled
+         relname          | relrowsecurity 
+--------------------------+----------------
+ sku_location_assignments | t
+ sku_velocity_snapshots   | t
+ slotting_class_policies  | t
+ slotting_recommendations | t
+ storage_locations        | t
+(5 rows)
+
+-- expected: 5 rows, relrowsecurity = t on every one
+
+-- A2 exactly one SELECT policy per table, and nothing else
+        tablename         |           policyname            |  cmd   
+--------------------------+---------------------------------+--------
+ sku_location_assignments | sku_location_assignments_select | SELECT
+ sku_velocity_snapshots   | sku_velocity_snapshots_select   | SELECT
+ slotting_class_policies  | slotting_class_policies_select  | SELECT
+ slotting_recommendations | slotting_recommendations_select | SELECT
+ storage_locations        | storage_locations_select        | SELECT
+(5 rows)
+
+-- expected: 5 rows, cmd = SELECT on every one (writes go through the RPCs)
+
+-- A3 uniqueness + CHECK constraints from design.md / tasks.md 1.2, 1.3
+             tbl              |                       conname                        | contype 
+------------------------------+------------------------------------------------------+---------
+ wms.sku_location_assignments | sku_location_assignments_assigned_reason_check       | c
+ wms.sku_location_assignments | sku_location_assignments_uq                          | u
+ wms.sku_velocity_snapshots   | sku_velocity_snapshots_batch_product_uq              | u
+ wms.sku_velocity_snapshots   | sku_velocity_snapshots_outbound_event_count_check    | c
+ wms.sku_velocity_snapshots   | sku_velocity_snapshots_outbound_qty_check            | c
+ wms.sku_velocity_snapshots   | sku_velocity_snapshots_velocity_class_check          | c
+ wms.sku_velocity_snapshots   | sku_velocity_snapshots_window_ck                     | c
+ wms.slotting_class_policies  | slotting_class_policies_max_accessibility_rank_check | c
+ wms.slotting_class_policies  | slotting_class_policies_uq                           | u
+ wms.slotting_class_policies  | slotting_class_policies_velocity_class_check         | c
+ wms.slotting_recommendations | slotting_recommendations_applied_ck                  | c
+ wms.slotting_recommendations | slotting_recommendations_not_self_ck                 | c
+ wms.slotting_recommendations | slotting_recommendations_reason_ck                   | c
+ wms.slotting_recommendations | slotting_recommendations_reason_code_check           | c
+ wms.slotting_recommendations | slotting_recommendations_reviewed_ck                 | c
+ wms.slotting_recommendations | slotting_recommendations_status_check                | c
+ wms.storage_locations        | storage_locations_accessibility_rank_check           | c
+ wms.storage_locations        | storage_locations_capacity_qty_check                 | c
+ wms.storage_locations        | storage_locations_code_uq                            | u
+ wms.storage_locations        | storage_locations_location_code_ck                   | c
+ wms.storage_locations        | storage_locations_status_check                       | c
+ wms.storage_locations        | storage_locations_zone_code_ck                       | c
+(22 rows)
+
+-- expected: storage_locations_code_uq, sku_location_assignments_uq,
+--           slotting_class_policies_uq + the rank/capacity/status CHECKs
+
+-- A4 the ten RPCs exist, SECURITY DEFINER
+                proname                | prosecdef 
+---------------------------------------+-----------
+ _wms_pick_slotting_target             | t
+ _wms_slotting_admin_guard             | t
+ wms_apply_slotting_recommendation     | t
+ wms_assign_sku_location               | t
+ wms_compute_sku_velocity              | t
+ wms_generate_slotting_recommendations | t
+ wms_reassign_sku_location             | t
+ wms_register_slotting_class_policy    | t
+ wms_register_storage_location         | t
+ wms_review_slotting_recommendation    | t
+ wms_set_storage_location_status       | t
+ wms_update_slotting_class_policy      | t
+(12 rows)
+
+-- expected: 10 wms_* RPCs + 3 internal _wms_* helpers, prosecdef=t
+
+-- A5 the overview view is security_invoker (inherits base-table RLS)
+              relname               |       reloptions        
+------------------------------------+-------------------------
+ slotting_recommendation_overview_v | {security_invoker=true}
+(1 row)
+
+-- expected: {security_invoker=true}
+
+==============================================================
+B. Location registry, assignments, policies
+   (spec: 창고별 보관 위치 등록 / 보관 위치 활성 상태 관리 /
+          SKU-위치 배정 선언 및 재배정 / 속도 등급별 목표 접근성 정책)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- B1 register: ACTIVE, version 1
+    code     | status | version | rank |                       next_actions                        
+-------------+--------+---------+------+-----------------------------------------------------------
+ SLOT-V-A-01 | ACTIVE | 1       | 1    | ["assign_sku_location", "register_slotting_class_policy"]
+(1 row)
+
+-- expected: SLOT-V-A-01 | ACTIVE | 1 | 1
+
+-- B2 duplicate location_code in the same warehouse -> INVALID
+                           duplicate_code                            
+---------------------------------------------------------------------
+ INVALID: location_code SLOT-V-A-01 already exists in this warehouse
+(1 row)
+
+ rows_with_that_code 
+---------------------
+                   1
+(1 row)
+
+-- expected: INVALID: location_code SLOT-V-A-01 already exists ... | 1
+
+-- B3 a role outside the registry set -> FORBIDDEN
+ act 
+-----
+ 
+(1 row)
+
+                 inbound_operator                  
+---------------------------------------------------
+ FORBIDDEN: role cannot register storage locations
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+                   process_agent                   
+---------------------------------------------------
+ FORBIDDEN: role cannot register storage locations
+(1 row)
+
+-- expected: FORBIDDEN twice (registry is master data — D6)
+
+-- B4 invalid rank / capacity are refused
+ act 
+-----
+ 
+(1 row)
+
+ rank_zero | capacity_negative 
+-----------+-------------------
+ INVALID   | INVALID
+(1 row)
+
+-- expected: INVALID | INVALID
+
+-- B5 idempotency: same key, one location
+--    (the count is a SEPARATE statement on purpose — a sub-SELECT beside
+--     the RPC call reads the pre-statement snapshot and reports 0.)
+              first_call              
+--------------------------------------
+ e58ec769-8eed-42ae-b20a-2e2b7415034f
+(1 row)
+
+            replayed_call             
+--------------------------------------
+ e58ec769-8eed-42ae-b20a-2e2b7415034f
+(1 row)
+
+ rows_created 
+--------------
+            1
+(1 row)
+
+-- expected: the same uuid twice | 1
+
+-- B6 status toggle honours expected_version; a stale one is a CONFLICT
+               stale_version               
+-------------------------------------------
+ CONFLICT: expected version 99 but found 1
+(1 row)
+
+  status  | version 
+----------+---------
+ INACTIVE | 2
+(1 row)
+
+-- expected: CONFLICT: expected version 99 but found 1 | INACTIVE | 2
+
+-- B7 an INACTIVE location may not be assigned to (spec SHALL NOT)
+                assign_to_inactive                 
+---------------------------------------------------
+ INVALID: storage location SLOT-V-Z-99 is INACTIVE
+(1 row)
+
+-- expected: INVALID: storage location SLOT-V-Z-99 is INACTIVE
+
+-- B8 declare P1 @ Z-20 (rank 20) and P4 @ A-02 (rank 2)
+    code     |       reason       | version |                  warnings                   
+-------------+--------------------+---------+---------------------------------------------
+ SLOT-V-Z-20 | MANUAL_DECLARATION | 1       | ["DECLARATION_NOT_RECONCILED_WITH_PUTAWAY"]
+(1 row)
+
+-- expected: SLOT-V-Z-20 | MANUAL_DECLARATION | 1 | [DECLARATION_NOT_RECONCILED_WITH_PUTAWAY]
+--   D1: the warning is on EVERY declaration. Nothing reconciles it against
+--   physical putaway, because wms_create_putaway_tasks has no location axis.
+
+-- B9 a second declaration for the same SKU -> INVALID (one live row)
+                                              duplicate_assignment                                              
+----------------------------------------------------------------------------------------------------------------
+ INVALID: product 80833482-0f85-4413-81d8-deb553f3a50a already has an active assignment (assignment_id=2e98abae
+(1 row)
+
+-- expected: INVALID: product ... already has an active assignment ... use wms_reassign
+
+-- B10 reassign checks the version, then moves the SKU
+               stale_version               
+-------------------------------------------
+ CONFLICT: expected version 42 but found 1
+(1 row)
+
+    code     | version 
+-------------+---------
+ SLOT-V-Z-30 | 2
+(1 row)
+
+-- expected: CONFLICT: expected version 42 but found 1 | SLOT-V-Z-30 | 2
+
+-- B11 class policies: A <= rank 5, C <= rank 40. B is left UNDEFINED on
+--     purpose so §F can show it being skipped rather than defaulted (D2).
+ class | max_rank | qualifying | version 
+-------+----------+------------+---------
+ A     | 5        | 4          | 1
+(1 row)
+
+-- expected: A | 5 | 4 | 1   (A-01, A-02, A-03, IDEM are ACTIVE at rank <= 5)
+
+-- B12 duplicate (warehouse, class) -> INVALID; update honours the version
+                                          duplicate_policy                                          
+----------------------------------------------------------------------------------------------------
+ INVALID: a A class policy already exists for this warehouse — use wms_update_slotting_class_policy
+(1 row)
+
+ max_rank | version |        warnings         
+----------+---------+-------------------------
+ 6        | 2       | ["REGENERATE_TO_APPLY"]
+(1 row)
+
+-- expected: INVALID: a A class policy already exists ... | 6 | 2 | [REGENERATE_TO_APPLY]
+
+==============================================================
+C. THE HONEST DEFAULT — velocity over the repository as it ships
+   (spec: "소비 이력이 전혀 없는 SKU는 등급 없이 명시적으로 제외된다")
+==============================================================
+
+-- C1 not one row in the whole ledger is a consumption signal
+ negative_available_rows | negative_rows_any_status | total_ledger_rows 
+-------------------------+--------------------------+-------------------
+                       0 |                        0 |                 2
+(1 row)
+
+-- expected: 0 | (only the QC offsets written by _wms_finalize_disposition) | n
+--   The 0 is the whole premise: wms_receive writes +qty to QC, disposition
+--   writes -qty to QC and +qty to AVAILABLE/SCRAP. Nothing decrements
+--   AVAILABLE. Area 5 (wms.outbound_orders, 20260731) is implemented and
+--   reaches COMPLETED, but writes no ledger row at all — verified below.
+
+-- C2 area 5 really is ledger-silent (not just claimed to be)
+ outbound_sourced_ledger_rows 
+------------------------------
+                            0
+(1 row)
+
+-- expected: 0
+
+-- C3 so the computation returns nothing, and SAYS it returned nothing
+ act 
+-----
+ 
+(1 row)
+
+  status   | candidates | included | skipped_no_data |              warnings               
+-----------+------------+----------+-----------------+-------------------------------------
+ NO_SIGNAL | 7          | 0        | 7               | ["NO_CONSUMPTION_SIGNAL_IN_WINDOW"]
+(1 row)
+
+-- expected: NO_SIGNAL | 7 | 0 | 7 | [NO_CONSUMPTION_SIGNAL_IN_WINDOW]
+--   No SKU is quietly graded C. included + skipped = candidates, always.
+
+-- C4 and no snapshot rows were fabricated
+ snapshots_created 
+-------------------
+                 0
+(1 row)
+
+-- expected: 0
+
+-- C5 D6 role gate on the analysis RPCs: PROCESS_AGENT yes, buyer no
+ act 
+-----
+ 
+(1 row)
+
+                    buyer                    
+---------------------------------------------
+ FORBIDDEN: role cannot compute SKU velocity
+(1 row)
+
+-- expected: FORBIDDEN: role cannot compute SKU velocity
+
+-- C6 window validation
+ act 
+-----
+ 
+(1 row)
+
+ start_equals_end | end_before_start 
+------------------+------------------
+ INVALID          | INVALID
+(1 row)
+
+-- expected: INVALID | INVALID
+
+==============================================================
+D. SYNTHETIC CONSUMPTION — standing in for a feature that does
+   not exist yet
+==============================================================
+
+-- The rows below are inserted DIRECTLY, as superuser, bypassing every
+-- RPC. No code path in this repository produces them (see §C1/§C2).
+-- They simulate what a future outbound-fulfilment RPC would write, and
+-- they exist for exactly one reason: without them the ABC arithmetic
+-- can never be exercised. source_type is tagged SLOT-V-synthetic-
+-- consumption so they are trivially identifiable and are deleted in §L.
+
+-- Quantities are chosen so the cumulative share lands EXACTLY on both
+-- cutoffs — the boundary is the interesting case (migration V5):
+--   P1  60  -> cum  60 =  60%  -> A
+--   P4  20  -> cum  80 =  80%  -> A   <- exactly 80, inclusive
+--   P2  15  -> cum  95 =  95%  -> B   <- exactly 95, inclusive
+--   P3   5  -> cum 100 = 100%  -> C
+
+-- D1 the injected signal, as the ledger now sees it
+    sku    | outbound_qty | events 
+-----------+--------------+--------
+ SLOT-V-P1 |           60 |      3
+ SLOT-V-P4 |           20 |      2
+ SLOT-V-P2 |           15 |      1
+ SLOT-V-P3 |            5 |      1
+(4 rows)
+
+-- expected: P1 60/3, P4 20/2, P2 15/1, P3 5/1  (total 100)
+
+==============================================================
+E. ABC classification (spec: SKU 출하 속도 계산)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+-- E1 compute over a window that contains the injected events
+  status  | candidates | included | skipped_no_data | total_qty |       class_counts       |           method           
+----------+------------+----------+-----------------+-----------+--------------------------+----------------------------
+ COMPUTED | 7          | 4        | 3               | 100       | {"A": 2, "B": 1, "C": 1} | CUMULATIVE_SHARE_ABC_80_95
+(1 row)
+
+-- expected: COMPUTED | 7 | 4 | 3 | 100 | {A:2, B:1, C:1} | CUMULATIVE_SHARE_ABC_80_95
+--   skipped_no_data = 3 is the three seed SKUs (SKU-A-001..003) that have
+--   no consumption signal. spec.md scenario "일부 SKU만 소비 이력이 있으면
+--   나머지는 개별적으로 제외된다", verified with real numbers.
+
+-- E2 the grades themselves, with the cumulative share that produced them
+    sku    | outbound_qty | outbound_event_count | velocity_class | cumulative_share_pct 
+-----------+--------------+----------------------+----------------+----------------------
+ SLOT-V-P1 |           60 |                    3 | A              |                60.00
+ SLOT-V-P4 |           20 |                    2 | A              |                80.00
+ SLOT-V-P2 |           15 |                    1 | B              |                95.00
+ SLOT-V-P3 |            5 |                    1 | C              |               100.00
+(4 rows)
+
+-- expected: P1 60/3 A @60.00 | P4 20/2 A @80.00 | P2 15/1 B @95.00 | P3 5/1 C @100.00
+--   V5: 80.00 is A and 95.00 is B — the boundaries are INCLUSIVE, and the
+--   comparison is integer (cum*100 <= total*80) so an exact 80% cannot
+--   slip past through a floating-point artefact.
+
+-- E3 every snapshot of one call shares one batch_id, and SKUs with no
+--    signal have NO ROW AT ALL (not a row with class C)
+ distinct_batches | snapshot_rows | tenant_products 
+------------------+---------------+-----------------
+                1 |             4 |               7
+(1 row)
+
+-- expected: 1 | 4 | 7
+
+-- E4 only AVAILABLE-negative counts. QC/SCRAP negatives are ignored,
+--    as are positive AVAILABLE rows (Non-Goals: no mixed signals).
+ total_qty | included 
+-----------+----------
+ 100       | 4
+(1 row)
+
+-- expected: 100 | 4  — unchanged, the three decoy rows contributed nothing
+
+-- E5 a window that misses the events is empty again — the honest default
+--    is a property of the WINDOW, not a one-off starting condition
+ included | skipped 
+----------+---------
+ 0        | 7
+(1 row)
+
+-- expected: 0 | 7
+
+==============================================================
+F. Recommendation generation (spec: 재배치 추천 생성)
+==============================================================
+
+-- Board state going in:
+--   P1  A-class, declared @ Z-20 (rank 20) — A policy caps at 5  -> RELOCATE
+--   P4  A-class, declared @ A-02 (rank  2) — already inside cap  -> skip
+--   P2  B-class, no B policy defined                             -> skip + report
+--   P3  C-class, no declaration at all                           -> UNASSIGNED
+
+-- F1 generate off the E1 batch
+  status   | snapshots | generated | no_policy | already_optimal | open_rec | no_target |            next_actions            
+-----------+-----------+-----------+-----------+-----------------+----------+-----------+------------------------------------
+ GENERATED | 4         | 2         | ["B"]     | 1               | 0        | 0         | ["review_slotting_recommendation"]
+(1 row)
+
+-- expected: GENERATED | 4 | 2 | ["B"] | 1 | 0 | 0 | [review_slotting_recommendation]
+--   D2: class B is skipped and NAMED. No default cap is invented for a
+--   warehouse that never defined one — that would manufacture a false
+--   recommendation, and accessibility_rank has no absolute meaning.
+--   D6: the agent generated these, and the next action it is offered is
+--   a HUMAN review. It cannot take that step itself (§G).
+
+-- F2 what was actually written, through the overview view
+    sku    | velocity_class |       reason_code        | status  | current_location_code | current_accessibility_rank | recommended_location_code | recommended_accessibility_rank | max_accessibility_rank | accessibility_gain 
+-----------+----------------+--------------------------+---------+-----------------------+----------------------------+---------------------------+--------------------------------+------------------------+--------------------
+ SLOT-V-P1 | A              | RELOCATE_UNDERSERVED     | PENDING | SLOT-V-Z-20           |                         20 | SLOT-V-A-01               |                              1 |                      5 |                 19
+ SLOT-V-P3 | C              | UNASSIGNED_HIGH_VELOCITY | PENDING |                       |                            | SLOT-V-A-03               |                              3 |                     40 |                   
+(2 rows)
+
+-- expected:
+--   P1 | A | RELOCATE_UNDERSERVED      | PENDING | SLOT-V-Z-20 | 20 | SLOT-V-A-01 |  1 |  5 | 19
+--   P3 | C | UNASSIGNED_HIGH_VELOCITY  | PENDING | (null)      |    | SLOT-V-A-03 |  3 | 40 | (null)
+--   D5: P3 gets a recommendation despite having no declared location.
+--   Excluding it would leave the least-managed SKUs least-managed forever.
+--   V3: P3 is not sent to A-01 even though rank 1 also satisfies its cap —
+--   A-01 is already the target of P1's open recommendation, so the pick
+--   moves on. One batch spreads across distinct targets.
+
+-- F3 no recommendation for the already-optimal SKU, none for the
+--    policy-less class
+ p4_already_optimal | p2_no_b_policy 
+--------------------+----------------
+                  0 |              0
+(1 row)
+
+-- expected: 0 | 0
+
+-- F4 V4: re-running generation does not stack duplicates
+ generated | open_rec 
+-----------+----------
+ 0         | 2
+(1 row)
+
+ total_recommendations 
+-----------------------
+                     2
+(1 row)
+
+-- expected: 0 | 2 | 2   (a deliberate re-run, not an idempotency replay)
+
+-- F5 an unknown / cross-warehouse batch is refused
+                                         unknown_batch                                          
+------------------------------------------------------------------------------------------------
+ INVALID: velocity batch 120d3fc6-6ce6-4dcd-9256-f94e264b5e7c has no snapshot in this warehouse
+(1 row)
+
+-- expected: INVALID: velocity batch ... has no snapshot in this warehouse
+
+==============================================================
+G. HITL review (spec: 재배치 추천 검토 / D6)
+==============================================================
+
+-- G1 THE CENTRAL ROLE RULE. The agent that generated the recommendation
+--    may not act on it. Approving means moving physical stock.
+ act 
+-----
+ 
+(1 row)
+
+                                          process_agent_approve                                          
+---------------------------------------------------------------------------------------------------------
+ FORBIDDEN: role cannot review slotting recommendations (human decision: WMS_ADMIN or WAREHOUSE_MANAGER)
+(1 row)
+
+                  process_agent_apply                  
+-------------------------------------------------------
+ FORBIDDEN: role cannot apply slotting recommendations
+(1 row)
+
+-- expected: FORBIDDEN (review, "human decision") | FORBIDDEN (apply)
+
+-- G2 INBOUND_OPERATOR may APPLY but may not DECIDE
+ act 
+-----
+ 
+(1 row)
+
+                                         inbound_operator_review                                         
+---------------------------------------------------------------------------------------------------------
+ FORBIDDEN: role cannot review slotting recommendations (human decision: WMS_ADMIN or WAREHOUSE_MANAGER)
+(1 row)
+
+-- expected: FORBIDDEN: role cannot review slotting recommendations
+--   The split is deliberate: deciding that stock should move is the
+--   manager's; recording that it did move is the floor's (§H2).
+
+-- G3 the manager approves — version-checked
+ act 
+-----
+ 
+(1 row)
+
+               stale_version               
+-------------------------------------------
+ CONFLICT: expected version 77 but found 1
+(1 row)
+
+  status  | version | reviewer_recorded | reviewed_at_set |                warnings                |           next_actions            
+----------+---------+-------------------+-----------------+----------------------------------------+-----------------------------------
+ APPROVED | 2       | t                 | t               | ["ASSIGNMENT_UNCHANGED_UNTIL_APPLIED"] | ["apply_slotting_recommendation"]
+(1 row)
+
+-- expected: CONFLICT | APPROVED | 2 | t | t |
+--           [ASSIGNMENT_UNCHANGED_UNTIL_APPLIED] | [apply_slotting_recommendation]
+--   D7: approving is not moving. Nothing on any shelf has changed yet.
+
+-- G4 the assignment really is untouched by the approval
+ p1_still_at 
+-------------
+ SLOT-V-Z-20
+(1 row)
+
+-- expected: SLOT-V-Z-20
+
+-- G5 re-reviewing a non-PENDING recommendation -> INVALID
+                                         double_review                                         
+-----------------------------------------------------------------------------------------------
+ INVALID: recommendation 7b45fa6e-8d82-41e7-9710-c4a3bbd83be7 is not PENDING (status=APPROVED)
+(1 row)
+
+ bad_decision 
+--------------
+ INVALID
+(1 row)
+
+-- expected: INVALID: recommendation ... is not PENDING (status=APPROVED) | INVALID
+
+-- G6 reject the P3 recommendation, with a reason
+  status  |            reason             |             next_actions              
+----------+-------------------------------+---------------------------------------
+ REJECTED | 해당 통로는 이번 분기 공사 중 | ["generate_slotting_recommendations"]
+(1 row)
+
+-- expected: REJECTED | 해당 통로는 이번 분기 공사 중 | [generate_slotting_recommendations]
+
+==============================================================
+H. Applying an approved recommendation (spec: 승인된 추천 적용 / D7)
+==============================================================
+-- H1 a PENDING/REJECTED recommendation cannot be applied
+                                         apply_rejected                                         
+------------------------------------------------------------------------------------------------
+ INVALID: recommendation d80c610f-cd3c-4deb-8c4c-c083aa9c89e2 is not APPROVED (status=REJECTED)
+(1 row)
+
+ p3_location_after_failed_apply 
+--------------------------------
+ 
+(1 row)
+
+-- expected: INVALID: recommendation ... is not APPROVED (status=REJECTED) | (null)
+
+-- H2 the floor applies the approved move (INBOUND_OPERATOR is allowed
+--    here — recording that the move HAPPENED is their knowledge)
+ act 
+-----
+ 
+(1 row)
+
+ status  |  moved_to   |     assigned_reason     | created_new | assignment_version | applied_at_set |                 warnings                  
+---------+-------------+-------------------------+-------------+--------------------+----------------+-------------------------------------------
+ APPLIED | SLOT-V-A-01 | SLOTTING_RECOMMENDATION | false       | 4                  | t              | ["RECORD_ONLY_NO_PHYSICAL_MOVE_VERIFIED"]
+(1 row)
+
+-- expected: APPLIED | SLOT-V-A-01 | SLOTTING_RECOMMENDATION | false | 4 | t |
+--           [RECORD_ONLY_NO_PHYSICAL_MOVE_VERIFIED]
+--   Non-Goals, stated on every application: the RECORD moved. Nobody
+--   checked the shelf, and this contract cannot.
+
+-- H3 the assignment really did move, and remembers why
+  p1_now_at  | new_rank |         reason          | traceable_to_recommendation 
+-------------+----------+-------------------------+-----------------------------
+ SLOT-V-A-01 |        1 | SLOTTING_RECOMMENDATION | t
+(1 row)
+
+-- expected: SLOT-V-A-01 | 1 | SLOTTING_RECOMMENDATION | t   (rank 20 -> 1)
+
+-- H4 applying twice is refused (status is no longer APPROVED)
+                                         double_apply                                          
+-----------------------------------------------------------------------------------------------
+ INVALID: recommendation 7b45fa6e-8d82-41e7-9710-c4a3bbd83be7 is not APPROVED (status=APPLIED)
+(1 row)
+
+-- expected: INVALID: recommendation ... is not APPROVED (status=APPLIED)
+
+-- H5 D5's other half — applying an UNASSIGNED recommendation CREATES the
+--    assignment. P3's first recommendation was rejected in G6, so
+--    regeneration is now allowed to produce a fresh one (V4).
+ act 
+-----
+ 
+(1 row)
+
+ generated | already_optimal 
+-----------+-----------------
+ 1         | 2
+(1 row)
+
+-- expected: 1 | 2   (P1 is now inside its cap too, so only P3 regenerates)
+ created_new |     assigned_reason     | location_code | assignment_version 
+-------------+-------------------------+---------------+--------------------
+ true        | SLOTTING_RECOMMENDATION | SLOT-V-A-03   | 1
+(1 row)
+
+-- expected: true | SLOTTING_RECOMMENDATION | SLOT-V-A-03 | 1
+--   version 1 = a brand-new assignment row, not an update.
+
+-- H6 a target deactivated between approval and application is refused
+--    (the shelf stopped being usable while the paperwork sat)
+ generated_for_p4 
+------------------
+ 1
+(1 row)
+
+               target_went_inactive                
+---------------------------------------------------
+ INVALID: storage location SLOT-V-A-02 is INACTIVE
+(1 row)
+
+ p4_unchanged 
+--------------
+ SLOT-V-Z-30
+(1 row)
+
+-- expected: 1 | INVALID: storage location ... is INACTIVE | SLOT-V-Z-30
+
+==============================================================
+I. Audit trail (spec: 감사 추적)
+==============================================================
+-- I1 every write RPC left an event with an actor
+                command                | events | with_actor 
+---------------------------------------+--------+------------
+ wms_apply_slotting_recommendation     |      4 |          4
+ wms_assign_sku_location               |      2 |          2
+ wms_compute_sku_velocity              |      4 |          4
+ wms_generate_slotting_recommendations |      4 |          4
+ wms_reassign_sku_location             |      3 |          3
+ wms_register_slotting_class_policy    |      2 |          2
+ wms_register_storage_location         |      9 |          9
+ wms_review_slotting_recommendation    |      4 |          4
+ wms_set_storage_location_status       |      2 |          2
+ wms_update_slotting_class_policy      |      2 |          2
+(10 rows)
+
+-- expected: all 10 commands present, events = with_actor on every row
+
+-- I2 the approval is auditable end to end (spec's worked scenario)
+              command               | before_status | after_status | by_the_manager 
+------------------------------------+---------------+--------------+----------------
+ wms_review_slotting_recommendation | PENDING       | APPROVED     | t
+(1 row)
+
+-- expected: PENDING -> APPROVED, by_the_manager = t
+
+-- I3 the application audited BOTH the recommendation and the assignment
+       entity_type       | before_status | after_status | assignment_was_at | assignment_now_at 
+-------------------------+---------------+--------------+-------------------+-------------------
+ sku_location_assignment | n/a           | n/a          | SLOT-V-Z-20       | SLOT-V-A-01
+ slotting_recommendation | APPROVED      | APPLIED      |                   | 
+(2 rows)
+
+-- expected: sku_location_assignment  n/a -> n/a, SLOT-V-Z-20 -> SLOT-V-A-01
+--           slotting_recommendation  APPROVED -> APPLIED
+--   D1: the previous placement lives here, in the audit log. There is no
+--   separate assignment-history table by design — this row IS the history.
+
+==============================================================
+J. Cross-tenant / warehouse scope (spec: 테넌트·창고 단위 접근 통제)
+==============================================================
+-- J1 tenant B's admin cannot drive tenant A's warehouse through any RPC
+ act 
+-----
+ 
+(1 row)
+
+ register  |  compute  |  review   
+-----------+-----------+-----------
+ FORBIDDEN | FORBIDDEN | FORBIDDEN
+(1 row)
+
+-- expected: FORBIDDEN | FORBIDDEN | FORBIDDEN
+
+==============================================================
+K. RLS at the table level (session role dropped to `authenticated`,
+   where the policy is the ONLY guard)
+==============================================================
+-- K1 a tenant A member sees tenant A rows
+ act 
+-----
+ 
+(1 row)
+
+ locations | assignments | policies | snapshots | recommendations | overview_rows 
+-----------+-------------+----------+-----------+-----------------+---------------
+         9 |           3 |        2 |         8 |               4 |             4
+(1 row)
+
+-- expected: non-zero across the board
+
+-- K2 tenant B's admin sees NONE of it
+ act 
+-----
+ 
+(1 row)
+
+ locations | assignments | policies | snapshots | recommendations | overview_rows 
+-----------+-------------+----------+-----------+-----------------+---------------
+         0 |           0 |        0 |         0 |               0 |             0
+(1 row)
+
+-- expected: 0 across the board (the view is security_invoker, so it
+--           inherits the base-table policies rather than bypassing them)
+
+-- K3 no write privilege was granted to authenticated (tasks.md 2.2)
+ act 
+-----
+ 
+(1 row)
+
+                 direct_insert                 |                    direct_update                     |                    direct_delete                     
+-----------------------------------------------+------------------------------------------------------+------------------------------------------------------
+ permission denied for table storage_locations | permission denied for table slotting_recommendations | permission denied for table sku_location_assignments
+(1 row)
+
+-- expected: ERROR (permission denied) three times — not "0 rows"
+
+-- K4 the grant table itself
+             table_name             | privs  
+------------------------------------+--------
+ sku_location_assignments           | SELECT
+ sku_velocity_snapshots             | SELECT
+ slotting_class_policies            | SELECT
+ slotting_recommendation_overview_v | SELECT
+ slotting_recommendations           | SELECT
+ storage_locations                  | SELECT
+(6 rows)
+
+-- expected: SELECT only, on all six
+
+==============================================================
+L. Teardown
+==============================================================
+ cleared 
+---------
+ t
+(1 row)
+
+ locations_left | snapshots_left | recommendations_left | synthetic_ledger_rows_left 
+----------------+----------------+----------------------+----------------------------
+              0 |              0 |                    0 |                          0
+(1 row)
+
+-- expected: 0 | 0 | 0 | 0  — the synthetic consumption signal is gone too
+
+==============================================================
+done.
+==============================================================

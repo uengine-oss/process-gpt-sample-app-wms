@@ -1,0 +1,47 @@
+
+Running 23 tests using 1 worker
+
+  ✓   1 [chromium] › playwright/e2e/agent-decisions-flow.spec.ts:255:1 › the manager reviews the agent queue: reads the reasoning, confirms one proposal, rejects another (4.8s)
+ERROR:  FORBIDDEN: PROCESS_AGENT may create proposals but not confirm or reject them (human review is the point)
+CONTEXT:  PL/pgSQL function _wms_load_agent_proposal(uuid,integer) line 17 at RAISE
+PL/pgSQL function wms_confirm_agent_proposal(uuid,uuid,uuid,integer,text) line 16 at assignment
+ERROR:  FORBIDDEN: PROCESS_AGENT may create proposals but not confirm or reject them (human review is the point)
+CONTEXT:  PL/pgSQL function _wms_load_agent_proposal(uuid,integer) line 17 at RAISE
+PL/pgSQL function wms_reject_agent_proposal(uuid,text,uuid,uuid,integer,text) line 16 at assignment
+ERROR:  FORBIDDEN: role cannot review agent proposals
+CONTEXT:  PL/pgSQL function _wms_load_agent_proposal(uuid,integer) line 21 at RAISE
+PL/pgSQL function wms_confirm_agent_proposal(uuid,uuid,uuid,integer,text) line 16 at assignment
+  ✓   2 [chromium] › playwright/e2e/agent-decisions-flow.spec.ts:430:1 › the agent cannot review its own proposals, and an operator sees the log but no buttons (830ms)
+  ✓   3 [chromium] › playwright/e2e/audit-log-flow.spec.ts:184:1 › an admin does real work, then an auditor reads it back as Korean sentences, filters it, sees the agent reasoning and exports it (1.5s)
+ERROR:  FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+CONTEXT:  PL/pgSQL function _audit_require_reader(uuid) line 10 at RAISE
+SQL statement "SELECT wms._audit_require_reader(p_tenant_id)"
+PL/pgSQL function wms_query_audit_log(uuid,timestamp with time zone,timestamp with time zone,uuid,text,uuid,text,text,integer,integer) line 7 at PERFORM
+ERROR:  FORBIDDEN: role cannot read the operations audit log (WMS_ADMIN or AUDITOR required)
+CONTEXT:  PL/pgSQL function _audit_require_reader(uuid) line 10 at RAISE
+SQL statement "SELECT wms._audit_require_reader(p_tenant_id)"
+PL/pgSQL function wms_export_audit_log(uuid,timestamp with time zone,timestamp with time zone,uuid,text,uuid,text,text,integer) line 10 at PERFORM
+  ✓   4 [chromium] › playwright/e2e/audit-log-flow.spec.ts:346:1 › a role outside WMS_ADMIN / AUDITOR cannot reach the audit log by nav, by URL, or by RPC (460ms)
+  ✓   5 [chromium] › playwright/e2e/dock-schedule-flow.spec.ts:121:1 › register docks -> book -> double-book refused -> check-in -> dock -> depart -> cancel frees the slot (1.9s)
+  ✓   6 [chromium] › playwright/e2e/dock-schedule-flow.spec.ts:231:1 › role boundaries hold in the UI, and every write left an audit event (905ms)
+  ✓   7 [chromium] › playwright/e2e/labor-flow.spec.ts:119:1 › worker starts + completes an activity, cancels another, and sees only their own productivity (885ms)
+  ✓   8 [chromium] › playwright/e2e/labor-flow.spec.ts:196:1 › the manager sees every worker ranked, and gets a headcount estimate (745ms)
+  ✓   9 [chromium] › playwright/e2e/slotting-flow.spec.ts:187:1 › the manager builds a slotting board, and the velocity computation refuses to invent grades (1.4s)
+  ✓  10 [chromium] › playwright/e2e/slotting-flow.spec.ts:308:1 › an agent may generate but not approve; the manager approves, applies, and the assignment moves (1.1s)
+  ✓  11 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:135:1 › register -> dispatch -> gateway completes -> fault -> operator resolves (1.5s)
+  ✓  12 [chromium] › playwright/e2e/wcs-equipment-flow.spec.ts:229:1 › WCS_OPERATOR cannot register equipment, and the audit trail is complete (307ms)
+NOTICE:  truncate cascades to table "dispatch_sequences"
+  ✓  13 [chromium] › playwright/e2e/wcs-routing-flow.spec.ts:229:1 › flaky machine is avoided, force-excluded machine is never used, fallback still works (2.0s)
+  ✓  14 [chromium] › playwright/e2e/wcs-routing-flow.spec.ts:363:1 › roles are split between threshold tuning and exclusion, and the audit trail is complete (879ms)
+  ✓  15 [chromium] › playwright/e2e/wcs-sequential-dispatch-flow.spec.ts:232:1 › outbound units -> sequencing -> PALLETIZE -> per-item result -> manifest (2.3s)
+  ✓  16 [chromium] › playwright/e2e/wcs-sequential-dispatch-flow.spec.ts:395:1 › operator cancels a dispatched batch, and WMS_ADMIN may plan but not dispatch (1.5s)
+  ✓  17 [chromium] › playwright/e2e/wcs-simulation-flow.spec.ts:147:1 › mark equipment simulated -> profile -> dispatch -> the worker completes it (2.3s)
+  ✓  18 [chromium] › playwright/e2e/wcs-simulation-flow.spec.ts:225:1 › failure injection, real equipment stays untouched, and a scenario dispatches nothing (4.7s)
+  ✓  19 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:145:1 › profile -> DIVERT -> MISROUTE (no fault) -> JAM (auto fault) -> operator resolves (1.9s)
+  ✓  20 [chromium] › playwright/e2e/wcs-sortation-flow.spec.ts:269:1 › WMS_ADMIN can tune a profile but cannot dispatch, and the audit trail is complete (785ms)
+NOTICE:  truncate cascades to table "dispatch_sequences"
+  ✓  21 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:198:1 › open wave -> queue work orders -> release -> gateway completes -> work order COMPLETED (1.2s)
+  ✓  22 [chromium] › playwright/e2e/wes-dispatch-flow.spec.ts:291:1 › WES board is read-only without an operating role, and the audit trail is complete (421ms)
+  ✓  23 [chromium] › playwright/e2e/wms-flow.spec.ts:21:1 › shortage -> RFQ -> approval -> PO -> receiving -> quality -> putaway (1.8s)
+
+  23 passed (40.1s)

@@ -1,0 +1,1336 @@
+NOTICE:  truncate cascades to table "dispatch_sequences"
+NOTICE:  truncate cascades to table "work_orders"
+NOTICE:  truncate cascades to table "sortation_profiles"
+NOTICE:  truncate cascades to table "wcs_routing_overrides"
+NOTICE:  truncate cascades to table "dispatch_sequences"
+
+==============================================================
+0. FIXTURE — two ROBOT_CELLs, one AGV (wrong type on purpose),
+   and one OPEN dispatch wave to sequence into
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                  register_cell01                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                  register_cell02                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+                                                                                                                   register_agv07                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OFFLINE", "version": 1, "document_id": "94e3d745-f3e8-437f-8cf8-bda5a6dffb32", "equipment_id": "94e3d745-f3e8-437f-8cf8-bda5a6dffb32", "next_actions": ["report_equipment_status", "dispatch_equipment_command"]}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                boot_cell01                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                boot_cell02                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+                                                                                                                                 boot_agv07                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "IDLE", "version": 2, "document_id": "94e3d745-f3e8-437f-8cf8-bda5a6dffb32", "equipment_id": "94e3d745-f3e8-437f-8cf8-bda5a6dffb32", "next_actions": ["dispatch_equipment_command", "get_equipment_status"], "previous_status": "OFFLINE"}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+RESET
+ equipment_code | equipment_type |  zone_code   | status 
+----------------+----------------+--------------+--------
+ SEQ-AGV-07     | AGV            | ZONE-SIM-SEQ | IDLE
+ SEQ-CELL-01    | ROBOT_CELL     | ZONE-SIM-SEQ | IDLE
+ SEQ-CELL-02    | ROBOT_CELL     | ZONE-SIM-SEQ | IDLE
+(3 rows)
+
+   wave   | status 
+----------+--------
+ b38b8d85 | OPEN
+ 922d46f5 | OPEN
+(2 rows)
+
+
+==============================================================
+1. Outbound unit registration
+   (spec: "출고 단위 등록")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  happy path — STORE-042, 10 EA, declared 4.2kg / 3.1L
+                                                                                                                                           create_order_1                                                                                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-042", "document_id": "37d0a7fc-ee81-4d24-a04f-207e92540506", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "37d0a7fc-ee81-4d24-a04f-207e92540506"}
+(1 row)
+
+                                                                                                                                           create_order_2                                                                                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-042", "document_id": "162c1f3c-f294-40ca-92cb-d99299ad7788", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "162c1f3c-f294-40ca-92cb-d99299ad7788"}
+(1 row)
+
+                                                                                                                                        create_order_3_heavy                                                                                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-088", "document_id": "e6be5c98-5b5e-4c3e-b2f6-c2387ab7bb5b", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "e6be5c98-5b5e-4c3e-b2f6-c2387ab7bb5b"}
+(1 row)
+
+                                                                                                                                        create_order_4_heavy                                                                                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-088", "document_id": "6ef031e9-4140-482d-81f1-4b0b357eaa60", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "6ef031e9-4140-482d-81f1-4b0b357eaa60"}
+(1 row)
+
+                                                                                                                                           create_order_5                                                                                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-101", "document_id": "d90c3588-5e6f-426d-8f04-661f00a59bfd", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "d90c3588-5e6f-426d-8f04-661f00a59bfd"}
+(1 row)
+
+  refusals
+             create_qty_zero              
+------------------------------------------
+ ERR  INVALID: qty must be greater than 0
+(1 row)
+
+           create_qty_negative            
+------------------------------------------
+ ERR  INVALID: qty must be greater than 0
+(1 row)
+
+          create_blank_store          
+--------------------------------------
+ ERR  INVALID: store_code is required
+(1 row)
+
+                                              create_foreign_product                                               
+-------------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: unknown product d8dfe616-5de0-4fc3-8fc4-50198d5a46ab in tenant 10000000-0000-0000-0000-00000000000a
+(1 row)
+
+                create_negative_weight                 
+-------------------------------------------------------
+ ERR  INVALID: declared_weight_kg must be 0 or greater
+(1 row)
+
+  no warehouse scope (tenant A manager pointing at tenant B warehouse)
+                             create_cross_tenant                             
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+RESET
+  role check — WCS_OPERATOR may sequence but may NOT create outbound units
+ act 
+-----
+ 
+(1 row)
+
+SET
+                 create_as_operator                 
+----------------------------------------------------
+ ERR  FORBIDDEN: role cannot create outbound orders
+(1 row)
+
+RESET
+  QUALITY_INSPECTOR has no business here at all
+ act 
+-----
+ 
+(1 row)
+
+SET
+                 create_as_quality                  
+----------------------------------------------------
+ ERR  FORBIDDEN: role cannot create outbound orders
+(1 row)
+
+RESET
+ order_number | store_code | qty | declared_weight_kg | declared_volume_l | status | version 
+--------------+------------+-----+--------------------+-------------------+--------+---------
+ OB-SIM-0001  | STORE-042  |  10 |                4.2 |               3.1 | OPEN   |       1
+ OB-SIM-0002  | STORE-042  |   4 |                6.0 |               5.0 | OPEN   |       1
+ OB-SIM-0003  | STORE-088  |   2 |              240.0 |              10.0 | OPEN   |       1
+ OB-SIM-0004  | STORE-088  |   1 |               30.0 |               4.0 | OPEN   |       1
+ OB-SIM-0005  | STORE-101  |   5 |                2.0 |               2.0 | OPEN   |       1
+(5 rows)
+
+
+==============================================================
+2. Idempotency — the same key twice creates ONE row
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                             first_call                                                                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-IDEM", "document_id": "15ea23e2-bd8c-4abe-86f5-870fa05b3fd6", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "15ea23e2-bd8c-4abe-86f5-870fa05b3fd6"}
+(1 row)
+
+                                                                                                                                            replayed_call                                                                                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "OPEN", "version": 1, "warnings": [], "store_code": "STORE-IDEM", "document_id": "15ea23e2-bd8c-4abe-86f5-870fa05b3fd6", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "15ea23e2-bd8c-4abe-86f5-870fa05b3fd6"}
+(1 row)
+
+RESET
+ rows_for_store_idem 
+---------------------
+                   1
+(1 row)
+
+
+==============================================================
+3. Sequence assignment inside a dispatch wave
+   (spec: "디스패치 웨이브 내 서열 배정")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  STORE-042 pallet PLT-0001 — positions 1 and 2
+                                                                                                                                                                                                                                                                        assign_1                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "81324b12-ee00-4550-b9d2-9ce4251c47b3", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "37d0a7fc-ee81-4d24-a04f-207e92540506", "sequence_position": 1, "target_pallet_code": "PLT-0001", "dispatch_sequence_id": "81324b12-ee00-4550-b9d2-9ce4251c47b3", "outbound_order_status": "SEQUENCED", "outbound_order_version": 2}
+(1 row)
+
+                                                                                                                                                                                                                                                                        assign_2                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "d7cc075a-c614-444d-b98c-c3d60900ddc2", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "162c1f3c-f294-40ca-92cb-d99299ad7788", "sequence_position": 2, "target_pallet_code": "PLT-0001", "dispatch_sequence_id": "d7cc075a-c614-444d-b98c-c3d60900ddc2", "outbound_order_status": "SEQUENCED", "outbound_order_version": 2}
+(1 row)
+
+  STORE-088 pallet PLT-0002 — the two heavy ones (240 + 30 = 270kg)
+                                                                                                                                                                                                                                                                        assign_3                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "6d74a205-ce75-4744-8496-8f040621644f", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "e6be5c98-5b5e-4c3e-b2f6-c2387ab7bb5b", "sequence_position": 3, "target_pallet_code": "PLT-0002", "dispatch_sequence_id": "6d74a205-ce75-4744-8496-8f040621644f", "outbound_order_status": "SEQUENCED", "outbound_order_version": 2}
+(1 row)
+
+                                                                                                                                                                                                                                                                        assign_4                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "43440ea5-b530-40c4-b440-9c326b1119cb", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "6ef031e9-4140-482d-81f1-4b0b357eaa60", "sequence_position": 4, "target_pallet_code": "PLT-0002", "dispatch_sequence_id": "43440ea5-b530-40c4-b440-9c326b1119cb", "outbound_order_status": "SEQUENCED", "outbound_order_version": 2}
+(1 row)
+
+  refusals
+                                    assign_duplicate_position                                    
+-------------------------------------------------------------------------------------------------
+ ERR  INVALID: sequence_position 1 is already taken in wave b38b8d85-90ba-4aca-85e6-4acc05a4ab1b
+(1 row)
+
+                                     assign_already_sequenced                                     
+--------------------------------------------------------------------------------------------------
+ ERR  INVALID: outbound order 37d0a7fc-ee81-4d24-a04f-207e92540506 is not OPEN (status=SEQUENCED)
+(1 row)
+
+                  assign_position_zero                  
+--------------------------------------------------------
+ ERR  INVALID: sequence_position must be greater than 0
+(1 row)
+
+             assign_blank_pallet              
+----------------------------------------------
+ ERR  INVALID: target_pallet_code is required
+(1 row)
+
+             assign_stale_version              
+-----------------------------------------------
+ ERR  CONFLICT: expected version 3 but found 1
+(1 row)
+
+                           assign_unknown_wave                            
+--------------------------------------------------------------------------
+ ERR  INVALID: unknown dispatch wave 00000000-0000-0000-0000-0000000000ff
+(1 row)
+
+RESET
+  a RELEASED wave is closed to new sequencing (area 2 rule, reused)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                        release_wave2                                                                                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "RELEASED", "version": 2, "wave_id": "922d46f5-90cd-4d9f-a538-ca47d4a744c5", "warnings": [], "document_id": "922d46f5-90cd-4d9f-a538-ca47d4a744c5", "work_orders": [], "next_actions": ["get_work_order_status"], "queued_count": 0, "dispatched_count": 0}
+(1 row)
+
+                                   assign_into_released_wave                                    
+------------------------------------------------------------------------------------------------
+ ERR  INVALID: dispatch wave 922d46f5-90cd-4d9f-a538-ca47d4a744c5 is not OPEN (status=RELEASED)
+(1 row)
+
+RESET
+  cross-tenant: tenant B admin cannot touch tenant A outbound units
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                    assign_cross_tenant                                     
+--------------------------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for outbound order d90c3588-5e6f-426d-8f04-661f00a59bfd
+(1 row)
+
+RESET
+ order_number | sequence_position | target_pallet_code | seq_status | order_status | order_version 
+--------------+-------------------+--------------------+------------+--------------+---------------
+ OB-SIM-0001  |                 1 | PLT-0001           | QUEUED     | SEQUENCED    |             2
+ OB-SIM-0002  |                 2 | PLT-0001           | QUEUED     | SEQUENCED    |             2
+ OB-SIM-0003  |                 3 | PLT-0002           | QUEUED     | SEQUENCED    |             2
+ OB-SIM-0004  |                 4 | PLT-0002           | QUEUED     | SEQUENCED    |             2
+(4 rows)
+
+
+==============================================================
+4. PALLETIZE dispatch — one command, N sequence assignments
+   (spec: "혼합 팔레타이징 명령 디스패치")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  planning-time ceiling (design.md D7, first half): PLT-0002 declares
+  270kg against a 250kg ceiling -> refused, nothing changes
+                               dispatch_overweight_plan                               
+--------------------------------------------------------------------------------------
+ ERR  INVALID: declared weight 270.0 kg exceeds max_weight_kg 250 for pallet PLT-0002
+(1 row)
+
+ order_number | seq_status 
+--------------+------------
+ OB-SIM-0003  | QUEUED
+ OB-SIM-0004  | QUEUED
+(2 rows)
+
+  volume ceiling behaves the same way (10 + 4 = 14L vs a 10L ceiling)
+                             dispatch_overvolume_plan                             
+----------------------------------------------------------------------------------
+ ERR  INVALID: declared volume 14.0 L exceeds max_volume_l 10 for pallet PLT-0002
+(1 row)
+
+  empty batch — no QUEUED assignment on this (wave, pallet)
+                                            dispatch_empty_batch                                             
+-------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: no QUEUED dispatch sequence for wave b38b8d85-90ba-4aca-85e6-4acc05a4ab1b and pallet PLT-0003
+(1 row)
+
+  wrong equipment type — an AGV cannot palletise
+                                  dispatch_to_agv                                   
+------------------------------------------------------------------------------------
+ ERR  INVALID: PALLETIZE is only valid for ROBOT_CELL equipment (SEQ-AGV-07 is AGV)
+(1 row)
+
+  ...and the same through the generic RPC, so the trigger is the real guard
+                                raw_palletize_to_agv                                
+------------------------------------------------------------------------------------
+ ERR  INVALID: PALLETIZE is only valid for ROBOT_CELL equipment (SEQ-AGV-07 is AGV)
+(1 row)
+
+  stale equipment version -> CONFLICT
+             dispatch_stale_version             
+------------------------------------------------
+ ERR  CONFLICT: expected version 99 but found 2
+(1 row)
+
+  happy path — PLT-0001 (2 items, 10.2kg / 8.1L) onto SEQ-CELL-01
+                                                                                                                                                                                                                                                                                                                                                         dispatch_plt0001                                                                                                                                                                                                                                                                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "item_count": 2, "document_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["report_command_result", "get_pallet_manifest", "cancel_dispatch_sequence"], "equipment_code": "SEQ-CELL-01", "equipment_status": "RUNNING", "equipment_version": 3, "target_pallet_code": "PLT-0001", "equipment_command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86", "dispatch_sequence_ids": ["81324b12-ee00-4550-b9d2-9ce4251c47b3", "d7cc075a-c614-444d-b98c-c3d60900ddc2"], "declared_total_volume_l": 8.1, "declared_total_weight_kg": 10.2}
+(1 row)
+
+RESET
+ order_number | sequence_position | seq_status | order_status |   cmd    
+--------------+-------------------+------------+--------------+----------
+ OB-SIM-0001  |                 1 | DISPATCHED | DISPATCHED   | f4cedfba
+ OB-SIM-0002  |                 2 | DISPATCHED | DISPATCHED   | f4cedfba
+(2 rows)
+
+  the payload the cell receives: items sorted by sequence_position
+                             palletize_payload                              
+----------------------------------------------------------------------------
+ {                                                                         +
+     "max_volume_l": 500,                                                  +
+     "max_weight_kg": 250,                                                 +
+     "sequence_items": [                                                   +
+         {                                                                 +
+             "store_code": "STORE-042",                                    +
+             "order_number": "OB-SIM-0001",                                +
+             "declared_volume_l": 3.1,                                     +
+             "outbound_order_id": "37d0a7fc-ee81-4d24-a04f-207e92540506",  +
+             "sequence_position": 1,                                       +
+             "declared_weight_kg": 4.2,                                    +
+             "dispatch_sequence_id": "81324b12-ee00-4550-b9d2-9ce4251c47b3"+
+         },                                                                +
+         {                                                                 +
+             "store_code": "STORE-042",                                    +
+             "order_number": "OB-SIM-0002",                                +
+             "declared_volume_l": 5.0,                                     +
+             "outbound_order_id": "162c1f3c-f294-40ca-92cb-d99299ad7788",  +
+             "sequence_position": 2,                                       +
+             "declared_weight_kg": 6.0,                                    +
+             "dispatch_sequence_id": "d7cc075a-c614-444d-b98c-c3d60900ddc2"+
+         }                                                                 +
+     ],                                                                    +
+     "target_pallet_code": "PLT-0001",                                     +
+     "declared_total_volume_l": 8.1,                                       +
+     "declared_total_weight_kg": 10.2                                      +
+ }
+(1 row)
+
+  the cell is now RUNNING, so a DIFFERENT pallet is refused on it (D4)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                     dispatch_second_pallet_same_cell                                     
+----------------------------------------------------------------------------------------------------------
+ ERR  INVALID: robot cell SEQ-CELL-01 is RUNNING on another pallet — one cell builds one pallet at a time
+(1 row)
+
+RESET
+  role check — WMS_ADMIN is NOT in wms_dispatch_equipment_command's role
+  set, so this contract refuses it up front rather than half-way
+  (migration DEVIATION 2)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                    dispatch_as_admin                    
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot dispatch palletize commands
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                   dispatch_as_quality                   
+---------------------------------------------------------
+ ERR  FORBIDDEN: role cannot dispatch palletize commands
+(1 row)
+
+RESET
+
+==============================================================
+5. Payload-shape validation through the generic dispatch RPC
+   (spec: "혼합 팔레타이징 명령 디스패치", "스트레치 포장 명령
+    payload 계약"; tasks.md 3.9)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  PALLETIZE with no sequence_items
+                       palletize_no_items                        
+-----------------------------------------------------------------
+ ERR  INVALID: PALLETIZE payload requires a sequence_items array
+(1 row)
+
+  PALLETIZE with an empty sequence_items array
+                      palletize_empty_items                       
+------------------------------------------------------------------
+ ERR  INVALID: PALLETIZE payload sequence_items must not be empty
+(1 row)
+
+  PALLETIZE with no target_pallet_code
+                  palletize_no_pallet_code                   
+-------------------------------------------------------------
+ ERR  INVALID: PALLETIZE payload requires target_pallet_code
+(1 row)
+
+  PALLETIZE with items out of sequence order
+                                        palletize_unsorted                                        
+--------------------------------------------------------------------------------------------------
+ ERR  INVALID: PALLETIZE sequence_items must be sorted by ascending sequence_position (3 after 4)
+(1 row)
+
+  WRAP without wrap_program
+                          wrap_no_program                           
+--------------------------------------------------------------------
+ ERR  INVALID: WRAP payload requires wrap_program STANDARD or HEAVY
+(1 row)
+
+  WRAP with an unknown wrap_program
+                        wrap_unknown_program                        
+--------------------------------------------------------------------
+ ERR  INVALID: WRAP payload requires wrap_program STANDARD or HEAVY
+(1 row)
+
+  WRAP on an AGV
+                                  wrap_on_agv                                  
+-------------------------------------------------------------------------------
+ ERR  INVALID: WRAP is only valid for ROBOT_CELL equipment (SEQ-AGV-07 is AGV)
+(1 row)
+
+RESET
+ commands_created_by_section_5 
+-------------------------------
+                             0
+(1 row)
+
+
+==============================================================
+6. PALLETIZE result — full SUCCESS fans out to every assignment
+   (spec: "팔레타이징 결과 보고와 항목 단위 상태 반영")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+       ack_in_progress        
+------------------------------
+ OK   command now IN_PROGRESS
+(1 row)
+
+  consistency guard first: COMPLETED + outcome=OVERWEIGHT is a lie
+                    completed_with_overweight                    
+-----------------------------------------------------------------
+ ERR  INVALID: outcome=OVERWEIGHT requires command_status=FAILED
+(1 row)
+
+  ...and SUCCESS with a SKIPPED item is also refused
+                                success_with_skipped                                
+------------------------------------------------------------------------------------
+ ERR  INVALID: outcome=SUCCESS requires every item to be LOADED (item 2 is SKIPPED)
+(1 row)
+
+  ...an unknown outcome value
+                                                unknown_outcome                                                
+---------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: PALLETIZE outcome must be one of SUCCESS, PARTIAL, OVERWEIGHT, OVERVOLUME, ABORTED (got WOBBLY)
+(1 row)
+
+  ...an item that does not belong to this command
+                                                                    foreign_item                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: loaded_items[1] dispatch_sequence_id 6d74a205-ce75-4744-8496-8f040621644f is not part of command f4cedfba-f897-4423-99f5-46ddfb6eae86
+(1 row)
+
+  ...and a LOADED item without a load_position
+                                 loaded_without_position                                 
+-----------------------------------------------------------------------------------------
+ ERR  INVALID: loaded_items[1] with item_outcome=LOADED requires a numeric load_position
+(1 row)
+
+  nothing moved while those were refused:
+ order_number | seq_status | load_position | order_status 
+--------------+------------+---------------+--------------
+ OB-SIM-0001  | DISPATCHED |               | DISPATCHED
+ OB-SIM-0002  | DISPATCHED |               | DISPATCHED
+(2 rows)
+
+  the real report: SUCCESS, both items LOADED at positions 1 and 2
+                                                                                                                                                        report_success                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 3, "command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86", "document_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 4}
+(1 row)
+
+RESET
+  one command result -> two assignments AND two outbound units updated:
+ order_number | seq_status | load_position | seq_version | order_status | order_version 
+--------------+------------+---------------+-------------+--------------+---------------
+ OB-SIM-0001  | COMPLETED  |             1 |           3 | COMPLETED    |             4
+ OB-SIM-0002  | COMPLETED  |             2 |           3 | COMPLETED    |             4
+(2 rows)
+
+ cell01_status 
+---------------
+ IDLE
+(1 row)
+
+
+==============================================================
+7. Pallet manifest
+   (spec: "팔레트 매니페스트 조회")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                manifest_by_command                                 
+------------------------------------------------------------------------------------
+ {                                                                                 +
+     "count": 1,                                                                   +
+     "result": "ok",                                                               +
+     "pallets": [                                                                  +
+         {                                                                         +
+             "items": [                                                            +
+                 {                                                                 +
+                     "qty": 10,                                                    +
+                     "sku": "SKU-A-001",                                           +
+                     "reason": null,                                               +
+                     "store_code": "STORE-042",                                    +
+                     "item_outcome": "LOADED",                                     +
+                     "order_number": "OB-SIM-0001",                                +
+                     "load_position": 1,                                           +
+                     "sequence_status": "COMPLETED",                               +
+                     "declared_volume_l": 3.1,                                     +
+                     "outbound_order_id": "37d0a7fc-ee81-4d24-a04f-207e92540506",  +
+                     "sequence_position": 1,                                       +
+                     "declared_weight_kg": 4.2,                                    +
+                     "dispatch_sequence_id": "81324b12-ee00-4550-b9d2-9ce4251c47b3"+
+                 },                                                                +
+                 {                                                                 +
+                     "qty": 4,                                                     +
+                     "sku": "SKU-A-002",                                           +
+                     "reason": null,                                               +
+                     "store_code": "STORE-042",                                    +
+                     "item_outcome": "LOADED",                                     +
+                     "order_number": "OB-SIM-0002",                                +
+                     "load_position": 2,                                           +
+                     "sequence_status": "COMPLETED",                               +
+                     "declared_volume_l": 5.0,                                     +
+                     "outbound_order_id": "162c1f3c-f294-40ca-92cb-d99299ad7788",  +
+                     "sequence_position": 2,                                       +
+                     "declared_weight_kg": 6.0,                                    +
+                     "dispatch_sequence_id": "d7cc075a-c614-444d-b98c-c3d60900ddc2"+
+                 }                                                                 +
+             ],                                                                    +
+             "outcome": "SUCCESS",                                                 +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",                    +
+             "reported": true,                                                     +
+             "reported_at": "2026-07-27T05:00:04.729495+00:00",                    +
+             "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df",               +
+             "max_volume_l": 500,                                                  +
+             "max_weight_kg": 250,                                                 +
+             "command_status": "COMPLETED",                                        +
+             "equipment_code": "SEQ-CELL-01",                                      +
+             "planned_item_count": 2,                                              +
+             "target_pallet_code": "PLT-0001",                                     +
+             "equipment_command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86",       +
+             "total_actual_volume_l": 8.0,                                         +
+             "total_actual_weight_kg": 10.4,                                       +
+             "declared_total_volume_l": 8.1,                                       +
+             "declared_total_weight_kg": 10.2                                      +
+         }                                                                         +
+     ],                                                                            +
+     "tenant_id": "10000000-0000-0000-0000-00000000000a",                          +
+     "warehouse_id": "20000000-0000-0000-0000-00000000000a"                        +
+ }
+(1 row)
+
+  the same manifest can be reached by pallet code
+ pallets_for_plt0001 
+---------------------
+                   1
+(1 row)
+
+  a warehouse the caller cannot see
+                          manifest_other_warehouse                           
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+RESET
+
+==============================================================
+8. Partial load and measured overweight
+   (spec: "부분 적재가 완료 상태로 보고되고 SKIPPED 항목만 FAILED로
+    반영된다", "중량 초과가 실패 상태로 보고되면 ...")
+   design.md D7 second half: the SAME pallet that passed the
+   planning check can still come back OVERWEIGHT from the scale.
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  PLT-0002 with a ceiling it fits (270kg vs 300kg) -> dispatch onto CELL-02
+                                                                                                                                                                                                                                                                                                                                                          dispatch_plt0002                                                                                                                                                                                                                                                                                                                                                          
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "item_count": 2, "document_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08", "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "next_actions": ["report_command_result", "get_pallet_manifest", "cancel_dispatch_sequence"], "equipment_code": "SEQ-CELL-02", "equipment_status": "RUNNING", "equipment_version": 3, "target_pallet_code": "PLT-0002", "equipment_command_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08", "dispatch_sequence_ids": ["6d74a205-ce75-4744-8496-8f040621644f", "43440ea5-b530-40c4-b440-9c326b1119cb"], "declared_total_volume_l": 14.0, "declared_total_weight_kg": 270.0}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+         ack_plt0002          
+------------------------------
+ OK   command now IN_PROGRESS
+(1 row)
+
+  PARTIAL: item 3 loaded, item 4 skipped because the scale said no
+                                                                                                                                                        report_partial                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 3, "command_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08", "document_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08", "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "next_actions": ["get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 4}
+(1 row)
+
+RESET
+ order_number | sequence_position | seq_status | load_position |   reason   | order_status 
+--------------+-------------------+------------+---------------+------------+--------------
+ OB-SIM-0003  |                 3 | COMPLETED  |             1 |            | COMPLETED
+ OB-SIM-0004  |                 4 | FAILED     |               | OVERWEIGHT | FAILED
+(2 rows)
+
+  now the pure measured-failure path: re-sequence the skipped unit and
+  have the cell report OVERWEIGHT for the whole build
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                     assign_plt0004                                                                                                                                                                                                                                                                      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "c70eef2d-0958-4644-a4a4-f731c856c05e", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "d90c3588-5e6f-426d-8f04-661f00a59bfd", "sequence_position": 7, "target_pallet_code": "PLT-0004", "dispatch_sequence_id": "c70eef2d-0958-4644-a4a4-f731c856c05e", "outbound_order_status": "SEQUENCED", "outbound_order_version": 2}
+(1 row)
+
+                                                                                                                                                                                                                                                                                                                                    dispatch_plt0004                                                                                                                                                                                                                                                                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "item_count": 1, "document_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["report_command_result", "get_pallet_manifest", "cancel_dispatch_sequence"], "equipment_code": "SEQ-CELL-01", "equipment_status": "RUNNING", "equipment_version": 5, "target_pallet_code": "PLT-0004", "equipment_command_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e", "dispatch_sequence_ids": ["c70eef2d-0958-4644-a4a4-f731c856c05e"], "declared_total_volume_l": 2.0, "declared_total_weight_kg": 2.0}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                     report_overweight                                                                                                                                                      
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "FAILED", "version": 2, "command_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e", "document_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 6}
+(1 row)
+
+RESET
+ order_number | seq_status |   reason    | order_status 
+--------------+------------+-------------+--------------
+ OB-SIM-0005  | FAILED     | SCALE_LIMIT | FAILED
+(1 row)
+
+
+  the two D7 failures side by side — same pallet concept, different
+  moment, different observable:
+             stage              |                         observable                         
+--------------------------------+------------------------------------------------------------
+ planning (declared vs ceiling) | INVALID: dispatch refused, no command row
+ measurement (scale vs ceiling) | command FAILED with outcome=OVERWEIGHT, assignments FAILED
+(2 rows)
+
+
+==============================================================
+9. WRAP is a thin extension — it must NOT touch assignments
+   (spec: "스트레치 포장 명령 payload 계약", design.md D8)
+==============================================================
+ completed_before 
+------------------
+                3
+(1 row)
+
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                        dispatch_wrap                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "command_id": "fe103612-0006-431e-9724-0712419a30d8", "document_id": "fe103612-0006-431e-9724-0712419a30d8", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["report_command_result", "cancel_equipment_command"], "equipment_status": "RUNNING", "equipment_version": 7}
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+  WRAP outcome consistency is checked too
+                  wrap_failed_as_completed                   
+-------------------------------------------------------------
+ ERR  INVALID: outcome=FAILED requires command_status=FAILED
+(1 row)
+
+                                                                                                                                                         wrap_success                                                                                                                                                          
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "COMPLETED", "version": 2, "command_id": "fe103612-0006-431e-9724-0712419a30d8", "document_id": "fe103612-0006-431e-9724-0712419a30d8", "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df", "next_actions": ["get_equipment_status"], "equipment_status": "IDLE", "equipment_version": 8}
+(1 row)
+
+RESET
+ completed_after 
+-----------------
+               3
+(1 row)
+
+ command_type |  status   | outcome | cycles 
+--------------+-----------+---------+--------
+ WRAP         | COMPLETED | SUCCESS | 3
+(1 row)
+
+
+==============================================================
+10. Cancellation
+   (spec: "서열 배정 취소"; migration DEVIATION 4)
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+  a QUEUED assignment: two fresh units on one pallet, cancel one
+                                                                                                                                                                                                       cancel_queued                                                                                                                                                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CANCELLED", "version": 2, "warnings": [], "document_id": "79c69eab-2de2-4a29-b18c-40066e77e4ce", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "c4d1c927-83aa-4c4e-b83b-b180892306ee", "dispatch_sequence_id": "79c69eab-2de2-4a29-b18c-40066e77e4ce", "cancelled_equipment_command_id": null, "cancelled_sibling_sequence_ids": []}
+(1 row)
+
+                                          cancel_already_cancelled                                           
+-------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: dispatch sequence 79c69eab-2de2-4a29-b18c-40066e77e4ce is already terminal (status=CANCELLED)
+(1 row)
+
+              cancel_stale_version              
+------------------------------------------------
+ ERR  CONFLICT: expected version 99 but found 1
+(1 row)
+
+                                              cancel_completed                                               
+-------------------------------------------------------------------------------------------------------------
+ ERR  INVALID: dispatch sequence 81324b12-ee00-4550-b9d2-9ce4251c47b3 is already terminal (status=COMPLETED)
+(1 row)
+
+  DEVIATION 3 in action: the cancelled unit went back to OPEN and can be
+  re-sequenced, reusing position 11
+ order_number | status | version 
+--------------+--------+---------
+ OB-SIM-0006  | OPEN   |       3
+(1 row)
+
+                                                                                                                                                                                                                                                                  reassign_after_cancel                                                                                                                                                                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "QUEUED", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "document_id": "4e0dbee3-dab4-4e65-82c6-2132da511de8", "next_actions": ["dispatch_palletize_command", "cancel_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "c4d1c927-83aa-4c4e-b83b-b180892306ee", "sequence_position": 11, "target_pallet_code": "PLT-0005", "dispatch_sequence_id": "4e0dbee3-dab4-4e65-82c6-2132da511de8", "outbound_order_status": "SEQUENCED", "outbound_order_version": 4}
+(1 row)
+
+RESET
+  a DISPATCHED assignment: cancelling it cancels the shared PALLETIZE
+  command AND its siblings (DEVIATION 4)
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                                                                                        dispatch_plt0005                                                                                                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "PENDING", "version": 1, "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b", "warnings": [], "item_count": 2, "document_id": "7b068ae1-b291-4dfa-b5be-d3163e6b0f87", "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea", "next_actions": ["report_command_result", "get_pallet_manifest", "cancel_dispatch_sequence"], "equipment_code": "SEQ-CELL-02", "equipment_status": "RUNNING", "equipment_version": 5, "target_pallet_code": "PLT-0005", "equipment_command_id": "7b068ae1-b291-4dfa-b5be-d3163e6b0f87", "dispatch_sequence_ids": ["4e0dbee3-dab4-4e65-82c6-2132da511de8", "320a436b-0627-4ffb-8a60-ad338e6495a6"], "declared_total_volume_l": 2.0, "declared_total_weight_kg": 2.0}
+(1 row)
+
+RESET
+  before any result is reported, the manifest for that command is EMPTY,
+  not an error (spec: "아직 결과가 보고되지 않은 명령의 매니페스트")
+ act 
+-----
+ 
+(1 row)
+
+SET
+ command_status | reported | item_count | planned 
+----------------+----------+------------+---------
+ PENDING        | false    |          0 | 2
+(1 row)
+
+RESET
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                                                                                                                                                                                                                                                                   cancel_dispatched                                                                                                                                                                                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ OK   {"result": "ok", "status": "CANCELLED", "version": 3, "warnings": ["SIBLING_SEQUENCES_CANCELLED: 1 other assignment(s) rode the same PALLETIZE command"], "document_id": "320a436b-0627-4ffb-8a60-ad338e6495a6", "next_actions": ["assign_dispatch_sequence", "get_dispatch_sequence_status"], "outbound_order_id": "d3aa7b6a-04d4-44f7-a773-4635f84c9988", "dispatch_sequence_id": "320a436b-0627-4ffb-8a60-ad338e6495a6", "cancelled_equipment_command_id": "7b068ae1-b291-4dfa-b5be-d3163e6b0f87", "cancelled_sibling_sequence_ids": ["4e0dbee3-dab4-4e65-82c6-2132da511de8"]}
+(1 row)
+
+RESET
+ order_number | sequence_position | seq_status |     reason     | order_status 
+--------------+-------------------+------------+----------------+--------------
+ OB-SIM-0006  |                11 | CANCELLED  | 고객 주문 취소 | OPEN
+ OB-SIM-0006  |                11 | CANCELLED  | 팔레트 재구성  | OPEN
+ OB-SIM-0007  |                12 | CANCELLED  | 팔레트 재구성  | OPEN
+(3 rows)
+
+ plt0005_command_status 
+------------------------
+ CANCELLED
+(1 row)
+
+
+==============================================================
+11. Read model — sequence / pallet status
+   (spec: "서열/팔레트 현황 조회")
+==============================================================
+ act 
+-----
+ 
+(1 row)
+
+SET
+                                wave1_status                                 
+-----------------------------------------------------------------------------
+ {                                                                          +
+     "pallets": [                                                           +
+         {                                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "failed_count": 0,                                             +
+             "queued_count": 0,                                             +
+             "completed_count": 2,                                          +
+             "dispatched_count": 0,                                         +
+             "declared_volume_l": 8.1,                                      +
+             "declared_weight_kg": 10.2,                                    +
+             "target_pallet_code": "PLT-0001",                              +
+             "equipment_command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86" +
+         },                                                                 +
+         {                                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "failed_count": 1,                                             +
+             "queued_count": 0,                                             +
+             "completed_count": 1,                                          +
+             "dispatched_count": 0,                                         +
+             "declared_volume_l": 14.0,                                     +
+             "declared_weight_kg": 270.0,                                   +
+             "target_pallet_code": "PLT-0002",                              +
+             "equipment_command_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08" +
+         },                                                                 +
+         {                                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "failed_count": 1,                                             +
+             "queued_count": 0,                                             +
+             "completed_count": 0,                                          +
+             "dispatched_count": 0,                                         +
+             "declared_volume_l": 2.0,                                      +
+             "declared_weight_kg": 2.0,                                     +
+             "target_pallet_code": "PLT-0004",                              +
+             "equipment_command_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e" +
+         }                                                                  +
+     ],                                                                     +
+     "sequences": [                                                         +
+         {                                                                  +
+             "qty": 10,                                                     +
+             "sku": "SKU-A-001",                                            +
+             "reason": null,                                                +
+             "status": "COMPLETED",                                         +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-042",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0001",                                 +
+             "product_name": "Corrugated Box (Medium)",                     +
+             "load_position": 1,                                            +
+             "declared_volume_l": 3.1,                                      +
+             "equipment_command": {                                         +
+                 "status": "COMPLETED",                                     +
+                 "version": 3,                                              +
+                 "command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df",    +
+                 "equipment_code": "SEQ-CELL-01",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "37d0a7fc-ee81-4d24-a04f-207e92540506",   +
+             "sequence_position": 1,                                        +
+             "declared_weight_kg": 4.2,                                     +
+             "target_pallet_code": "PLT-0001",                              +
+             "dispatch_sequence_id": "81324b12-ee00-4550-b9d2-9ce4251c47b3",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "COMPLETED",                          +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 4,                                                      +
+             "sku": "SKU-A-002",                                            +
+             "reason": null,                                                +
+             "status": "COMPLETED",                                         +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-042",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0002",                                 +
+             "product_name": "Pallet Wrap Roll",                            +
+             "load_position": 2,                                            +
+             "declared_volume_l": 5.0,                                      +
+             "equipment_command": {                                         +
+                 "status": "COMPLETED",                                     +
+                 "version": 3,                                              +
+                 "command_id": "f4cedfba-f897-4423-99f5-46ddfb6eae86",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df",    +
+                 "equipment_code": "SEQ-CELL-01",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "162c1f3c-f294-40ca-92cb-d99299ad7788",   +
+             "sequence_position": 2,                                        +
+             "declared_weight_kg": 6.0,                                     +
+             "target_pallet_code": "PLT-0001",                              +
+             "dispatch_sequence_id": "d7cc075a-c614-444d-b98c-c3d60900ddc2",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "COMPLETED",                          +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 2,                                                      +
+             "sku": "SKU-A-003",                                            +
+             "reason": null,                                                +
+             "status": "COMPLETED",                                         +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-088",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0003",                                 +
+             "product_name": "Barcode Scanner Battery",                     +
+             "load_position": 1,                                            +
+             "declared_volume_l": 10.0,                                     +
+             "equipment_command": {                                         +
+                 "status": "COMPLETED",                                     +
+                 "version": 3,                                              +
+                 "command_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea",    +
+                 "equipment_code": "SEQ-CELL-02",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "e6be5c98-5b5e-4c3e-b2f6-c2387ab7bb5b",   +
+             "sequence_position": 3,                                        +
+             "declared_weight_kg": 240.0,                                   +
+             "target_pallet_code": "PLT-0002",                              +
+             "dispatch_sequence_id": "6d74a205-ce75-4744-8496-8f040621644f",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "COMPLETED",                          +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 1,                                                      +
+             "sku": "SKU-A-001",                                            +
+             "reason": "OVERWEIGHT",                                        +
+             "status": "FAILED",                                            +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-088",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0004",                                 +
+             "product_name": "Corrugated Box (Medium)",                     +
+             "load_position": null,                                         +
+             "declared_volume_l": 4.0,                                      +
+             "equipment_command": {                                         +
+                 "status": "COMPLETED",                                     +
+                 "version": 3,                                              +
+                 "command_id": "e29ae35e-b064-4b0a-825d-9df7ec6c9c08",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea",    +
+                 "equipment_code": "SEQ-CELL-02",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "6ef031e9-4140-482d-81f1-4b0b357eaa60",   +
+             "sequence_position": 4,                                        +
+             "declared_weight_kg": 30.0,                                    +
+             "target_pallet_code": "PLT-0002",                              +
+             "dispatch_sequence_id": "43440ea5-b530-40c4-b440-9c326b1119cb",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "FAILED",                             +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 5,                                                      +
+             "sku": "SKU-A-002",                                            +
+             "reason": "SCALE_LIMIT",                                       +
+             "status": "FAILED",                                            +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-101",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0005",                                 +
+             "product_name": "Pallet Wrap Roll",                            +
+             "load_position": null,                                         +
+             "declared_volume_l": 2.0,                                      +
+             "equipment_command": {                                         +
+                 "status": "FAILED",                                        +
+                 "version": 2,                                              +
+                 "command_id": "dd2b454e-36d5-4ce2-967a-6c98c118c58e",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "22803b8d-a7f9-4519-b101-557ac0a1f2df",    +
+                 "equipment_code": "SEQ-CELL-01",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "d90c3588-5e6f-426d-8f04-661f00a59bfd",   +
+             "sequence_position": 7,                                        +
+             "declared_weight_kg": 2.0,                                     +
+             "target_pallet_code": "PLT-0004",                              +
+             "dispatch_sequence_id": "c70eef2d-0958-4644-a4a4-f731c856c05e",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "FAILED",                             +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 3,                                                      +
+             "sku": "SKU-A-001",                                            +
+             "reason": "고객 주문 취소",                                    +
+             "status": "CANCELLED",                                         +
+             "version": 2,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-777",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0006",                                 +
+             "product_name": "Corrugated Box (Medium)",                     +
+             "load_position": null,                                         +
+             "declared_volume_l": 1.0,                                      +
+             "equipment_command": null,                                     +
+             "outbound_order_id": "c4d1c927-83aa-4c4e-b83b-b180892306ee",   +
+             "sequence_position": 11,                                       +
+             "declared_weight_kg": 1.0,                                     +
+             "target_pallet_code": "PLT-0005",                              +
+             "dispatch_sequence_id": "79c69eab-2de2-4a29-b18c-40066e77e4ce",+
+             "has_equipment_command": false,                                +
+             "outbound_order_status": "OPEN",                               +
+             "outbound_order_version": 6,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 3,                                                      +
+             "sku": "SKU-A-001",                                            +
+             "reason": "팔레트 재구성",                                     +
+             "status": "CANCELLED",                                         +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-777",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0006",                                 +
+             "product_name": "Corrugated Box (Medium)",                     +
+             "load_position": null,                                         +
+             "declared_volume_l": 1.0,                                      +
+             "equipment_command": {                                         +
+                 "status": "CANCELLED",                                     +
+                 "version": 2,                                              +
+                 "command_id": "7b068ae1-b291-4dfa-b5be-d3163e6b0f87",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea",    +
+                 "equipment_code": "SEQ-CELL-02",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "c4d1c927-83aa-4c4e-b83b-b180892306ee",   +
+             "sequence_position": 11,                                       +
+             "declared_weight_kg": 1.0,                                     +
+             "target_pallet_code": "PLT-0005",                              +
+             "dispatch_sequence_id": "4e0dbee3-dab4-4e65-82c6-2132da511de8",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "OPEN",                               +
+             "outbound_order_version": 6,                                   +
+             "requested_delivery_date": null                                +
+         },                                                                 +
+         {                                                                  +
+             "qty": 3,                                                      +
+             "sku": "SKU-A-002",                                            +
+             "reason": "팔레트 재구성",                                     +
+             "status": "CANCELLED",                                         +
+             "version": 3,                                                  +
+             "wave_id": "b38b8d85-90ba-4aca-85e6-4acc05a4ab1b",             +
+             "store_code": "STORE-777",                                     +
+             "wave_status": "OPEN",                                         +
+             "order_number": "OB-SIM-0007",                                 +
+             "product_name": "Pallet Wrap Roll",                            +
+             "load_position": null,                                         +
+             "declared_volume_l": 1.0,                                      +
+             "equipment_command": {                                         +
+                 "status": "CANCELLED",                                     +
+                 "version": 2,                                              +
+                 "command_id": "7b068ae1-b291-4dfa-b5be-d3163e6b0f87",      +
+                 "command_type": "PALLETIZE",                               +
+                 "equipment_id": "cd075ae9-e802-4293-be9c-34d7744814ea",    +
+                 "equipment_code": "SEQ-CELL-02",                           +
+                 "equipment_status": "IDLE"                                 +
+             },                                                             +
+             "outbound_order_id": "d3aa7b6a-04d4-44f7-a773-4635f84c9988",   +
+             "sequence_position": 12,                                       +
+             "declared_weight_kg": 1.0,                                     +
+             "target_pallet_code": "PLT-0005",                              +
+             "dispatch_sequence_id": "320a436b-0627-4ffb-8a60-ad338e6495a6",+
+             "has_equipment_command": true,                                 +
+             "outbound_order_status": "OPEN",                               +
+             "outbound_order_version": 4,                                   +
+             "requested_delivery_date": null                                +
+         }                                                                  +
+     ]                                                                      +
+ }
+(1 row)
+
+  filtering by the OTHER wave returns nothing from wave 1
+ wave2_sequence_count 
+----------------------
+                    0
+(1 row)
+
+  a warehouse the caller cannot see
+                           status_other_warehouse                            
+-----------------------------------------------------------------------------
+ ERR  FORBIDDEN: no warehouse scope for 20000000-0000-0000-0000-00000000000b
+(1 row)
+
+RESET
+  tenant B admin sees zero rows of tenant A data through RLS
+ act 
+-----
+ 
+(1 row)
+
+SET
+ outbound_rows_visible_to_tenant_b 
+-----------------------------------
+                                 0
+(1 row)
+
+ sequence_rows_visible_to_tenant_b 
+-----------------------------------
+                                 0
+(1 row)
+
+RESET
+
+==============================================================
+12. RLS / privilege surface
+   (spec: "테넌트·창고 단위 접근 통제")
+==============================================================
+    grantee    |     table_name     | privileges 
+---------------+--------------------+------------
+ authenticated | dispatch_sequences | SELECT
+ authenticated | outbound_orders    | SELECT
+(2 rows)
+
+      relname       | rls_enabled 
+--------------------+-------------
+ outbound_orders    | t
+ dispatch_sequences | t
+(2 rows)
+
+  direct writes are impossible even for a fully-privileged demo role
+ act 
+-----
+ 
+(1 row)
+
+SET
+                  direct_insert                   
+--------------------------------------------------
+ ERR  permission denied for table outbound_orders
+(1 row)
+
+                    direct_update                    
+-----------------------------------------------------
+ ERR  permission denied for table dispatch_sequences
+(1 row)
+
+                  direct_delete                   
+--------------------------------------------------
+ ERR  permission denied for table outbound_orders
+(1 row)
+
+RESET
+  the security definer functions this contract adds
+             proname              | security_definer 
+----------------------------------+------------------
+ _wms_propagate_palletize_result  | t
+ _wms_validate_palletize_command  | t
+ _wms_validate_palletize_outcome  | t
+ wms_assign_dispatch_sequence     | t
+ wms_cancel_dispatch_sequence     | t
+ wms_create_outbound_order        | t
+ wms_dispatch_palletize_command   | t
+ wms_get_dispatch_sequence_status | t
+ wms_get_pallet_manifest          | t
+(9 rows)
+
+
+==============================================================
+13. Audit trail
+   (spec: "감사 추적")
+==============================================================
+            command             |    entity_type    | events 
+--------------------------------+-------------------+--------
+ wms_assign_dispatch_sequence   | dispatch_sequence |      8
+ wms_assign_dispatch_sequence   | outbound_order    |      8
+ wms_cancel_dispatch_sequence   | dispatch_sequence |      3
+ wms_create_outbound_order      | outbound_order    |      8
+ wms_dispatch_palletize_command | dispatch_sequence |      7
+ wms_propagate_palletize_result | dispatch_sequence |      5
+ wms_propagate_palletize_result | outbound_order    |      5
+(7 rows)
+
+  the per-item automatic propagation nobody clicked, with before/after:
+ sequence | before_status | after_status | load_position | correlation_id 
+----------+---------------+--------------+---------------+----------------
+ 81324b12 | DISPATCHED    | COMPLETED    | 1             | seq-sim
+ d7cc075a | DISPATCHED    | COMPLETED    | 2             | seq-sim
+ 6d74a205 | DISPATCHED    | COMPLETED    | 1             | seq-sim
+ 43440ea5 | DISPATCHED    | FAILED       |               | seq-sim
+ c70eef2d | DISPATCHED    | FAILED       |               | seq-sim
+(5 rows)
+
+
+==============================================================
+14. command_type extension actually took effect
+   (migration DEVIATION 1 — the RPC hard-codes the list too)
+==============================================================
+                                                                                                       command_type_check                                                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CHECK ((command_type = ANY (ARRAY['MOVE'::text, 'LOAD'::text, 'UNLOAD'::text, 'START'::text, 'STOP'::text, 'RESET'::text, 'HOLD'::text, 'RESUME'::text, 'DIVERT'::text, 'SET_SPEED'::text, 'PALLETIZE'::text, 'WRAP'::text])))
+(1 row)
+
+ command_type | count 
+--------------+-------
+ PALLETIZE    |     4
+ WRAP         |     1
+(2 rows)
+
+
+==============================================================
+DONE
+==============================================================
