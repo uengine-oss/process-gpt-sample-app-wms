@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "wms-mcp": {
+      "serverUrl": "http://localhost:8199/mcp"
+    }
+  }
+}

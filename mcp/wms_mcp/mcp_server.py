@@ -95,7 +95,7 @@ def _error_result(exc: WmsCommandError) -> dict:
 
 @mcp.tool
 async def get_availability(
-    tenant_id: Annotated[str, Field(description="테넌트 UUID")],
+    tenant_id: Annotated[str, Field(description="테넌트 ID (ProcessGPT tenant_id)")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
     sku: Annotated[str, Field(description="상품 SKU")],
 ) -> dict:
@@ -110,8 +110,24 @@ async def get_availability(
 
 
 @mcp.tool
+async def list_warehouse_stock(
+    tenant_id: Annotated[str, Field(description="테넌트 ID (ProcessGPT tenant_id)")],
+) -> dict:
+    """테넌트의 모든 창고와 각 창고의 전 품목 재고 가용량을 조회한다 (읽기 전용).
+
+    warehouse_id/sku를 모르는 상태에서 재고 현황을 한눈에 파악할 때 사용한다.
+    호출자가 접근 권한을 가진 창고만 반환된다(wms.current_warehouse_ids).
+    """
+    try:
+        data = _call_rpc("wms_list_warehouse_stock", {"p_tenant_id": tenant_id})
+        return {"result": "ok", "document": data}
+    except WmsCommandError as exc:
+        return _error_result(exc)
+
+
+@mcp.tool
 async def create_rfq(
-    tenant_id: Annotated[str, Field(description="테넌트 UUID")],
+    tenant_id: Annotated[str, Field(description="테넌트 ID (ProcessGPT tenant_id)")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
     sku: Annotated[str, Field(description="상품 SKU")],
     qty: Annotated[float, Field(description="제안 발주 수량")],

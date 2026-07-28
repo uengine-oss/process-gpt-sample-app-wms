@@ -53,15 +53,15 @@ end $$;
 -- ------------------------------------------------------------
 
 insert into wms.tenants (id, code, name) values
-  ('10000000-0000-0000-0000-00000000000a', 'demo-a', 'Tenant A Logistics'),
+  ('localhost', 'demo-a', 'Tenant A Logistics'),
   ('10000000-0000-0000-0000-00000000000b', 'demo-b', 'Tenant B Retail');
 
 insert into wms.warehouses (id, tenant_id, code, name) values
-  ('20000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-00000000000a', 'WH-A1', 'Tenant A Main Warehouse'),
+  ('20000000-0000-0000-0000-00000000000a', 'localhost', 'WH-A1', 'Tenant A Main Warehouse'),
   ('20000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-00000000000b', 'WH-B1', 'Tenant B Main Warehouse');
 
 insert into wms.memberships (user_id, tenant_id, role)
-select u.id, '10000000-0000-0000-0000-00000000000a', m.role
+select u.id, 'localhost', m.role
 from auth.users u
 join (values
   ('admin-a@demo.local', 'WMS_ADMIN'),
@@ -97,7 +97,7 @@ from auth.users u where u.email = 'admin-b@demo.local';
 -- Non-admin roles need an explicit warehouse scope row; WMS_ADMIN gets every
 -- warehouse in its tenant automatically (see wms.current_warehouse_ids()).
 insert into wms.warehouse_scopes (user_id, tenant_id, warehouse_id)
-select u.id, '10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a'
+select u.id, 'localhost', '20000000-0000-0000-0000-00000000000a'
 from auth.users u
 where u.email in (
   'buyer-a@demo.local', 'approver-a@demo.local', 'inbound-a@demo.local',
@@ -111,15 +111,15 @@ where u.email in (
 -- ------------------------------------------------------------
 
 insert into wms.products (tenant_id, sku, name, uom, reorder_min, reorder_max) values
-  ('10000000-0000-0000-0000-00000000000a', 'SKU-A-001', 'Corrugated Box (Medium)', 'EA', 50, 200),
-  ('10000000-0000-0000-0000-00000000000a', 'SKU-A-002', 'Pallet Wrap Roll', 'EA', 20, 100),
-  ('10000000-0000-0000-0000-00000000000a', 'SKU-A-003', 'Barcode Scanner Battery', 'EA', 10, 50),
+  ('localhost', 'SKU-A-001', 'Corrugated Box (Medium)', 'EA', 50, 200),
+  ('localhost', 'SKU-A-002', 'Pallet Wrap Roll', 'EA', 20, 100),
+  ('localhost', 'SKU-A-003', 'Barcode Scanner Battery', 'EA', 10, 50),
   ('10000000-0000-0000-0000-00000000000b', 'SKU-B-001', 'Retail Shelf Label', 'EA', 100, 500),
   ('10000000-0000-0000-0000-00000000000b', 'SKU-B-002', 'Shopping Bag (Paper)', 'EA', 200, 1000);
 
 insert into wms.suppliers (tenant_id, name, email) values
-  ('10000000-0000-0000-0000-00000000000a', 'Acme Packaging Co.', 'sales@acme-packaging.demo'),
-  ('10000000-0000-0000-0000-00000000000a', 'Northwind Supplies', 'orders@northwind-supplies.demo'),
+  ('localhost', 'Acme Packaging Co.', 'sales@acme-packaging.demo'),
+  ('localhost', 'Northwind Supplies', 'orders@northwind-supplies.demo'),
   ('10000000-0000-0000-0000-00000000000b', 'Retail Basics Inc.', 'sales@retail-basics.demo');
 
 -- ------------------------------------------------------------
@@ -203,9 +203,9 @@ join auth.users u on u.email = s.email;
 -- ------------------------------------------------------------
 
 insert into wms.stock_ledger_entries (tenant_id, warehouse_id, product_id, qty_delta, status, source_type, source_id)
-select '10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', p.id, 30, 'AVAILABLE', 'opening_balance', null
-from wms.products p where p.sku = 'SKU-A-001' and p.tenant_id = '10000000-0000-0000-0000-00000000000a';
+select 'localhost', '20000000-0000-0000-0000-00000000000a', p.id, 30, 'AVAILABLE', 'opening_balance', null
+from wms.products p where p.sku = 'SKU-A-001' and p.tenant_id = 'localhost';
 
 insert into wms.stock_ledger_entries (tenant_id, warehouse_id, product_id, qty_delta, status, source_type, source_id)
-select '10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', p.id, 60, 'AVAILABLE', 'opening_balance', null
-from wms.products p where p.sku = 'SKU-A-002' and p.tenant_id = '10000000-0000-0000-0000-00000000000a';
+select 'localhost', '20000000-0000-0000-0000-00000000000a', p.id, 60, 'AVAILABLE', 'opening_balance', null
+from wms.products p where p.sku = 'SKU-A-002' and p.tenant_id = 'localhost';
