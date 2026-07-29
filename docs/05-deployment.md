@@ -101,15 +101,33 @@ TLS 종단 리버스 프록시(Caddy/Traefik/nginx 등)를 그 앞에 둔다. wm
 ProcessGPT 폴링 컨테이너가 도달할 수 있는 URL(`https://<도메인>/mcp` 등)로
 노출해야 한다.
 
+**process-gpt-vue3 게이트웨이 뒤에서 `/wms` 경로로 물릴 이미지는 빌드 인자가
+하나 더 필요하다** — `docker compose build`(위 명령)는 wms-frontend를 도메인
+루트(`base: /`)로 빌드한다. 게이트웨이가 `/wms` 접두사를 벗기고 넘기므로
+브라우저가 요청하는 정적 자산 경로(`/assets/...`, `/env.js`)에도 그 접두사가
+그대로 붙어 있어야 한다 — 안 붙이면 그 요청들이 게이트웨이의 catch-all
+라우트(ProcessGPT 자체 프론트엔드)로 잘못 흘러간다(실제로 로컬 재현해서
+확인한 문제). 그래서 이미지를 만들 때 반드시:
+
+```bash
+docker build --build-arg VITE_BASE_PATH=/wms/ -t wms-frontend:latest frontend/
+```
+
 ## 6. 게이트웨이 라우팅 + SSO (process-gpt-vue3)
 
 실제 게이트웨이는 `process-gpt-vue3`의 Spring Cloud Gateway
 (`gateway/src/main/resources/application.yml`)다. `*.process-gpt.io` 전체가
 이 하나의 서비스로 들어와 `Path` predicate로 내부 서비스에 분기하고 접두사를
 벗겨서(`RewritePath`) 넘긴다 — `/completion/**`, `/memento/**` 등과 같은
-패턴으로 `/wms/**` → wms-frontend, `/wms-mcp/**` → wms-mcp 라우트를 추가했다
+패턴으로 `/wms/**` → wms-frontend 라우트를 추가했다
 (`gateway/src/main/resources/application.yml`, `default`/`docker` 프로파일
-둘 다, K8s 매니페스트는 `kubernetes/deployment.yaml`/`service.yaml`).
+둘 다). wms-frontend/wms-mcp의 실제 K8s Deployment/Service는
+`process-gpt-vue3`가 아니라 별도 인프라 저장소
+`process-gpt-k8s`(`deployments/process-gpt-wms-app-deployment.yaml`,
+`services/process-gpt-wms-app-service.yaml`)에 있다 — 게이트웨이 라우트의
+`http://wms-frontend:5273`은 그 Service 이름과 일치해야 한다. wms-mcp는
+이 공개 게이트웨이로 라우팅하지 않는다 — ProcessGPT 백엔드가 클러스터
+내부 네트워킹으로 직접 호출한다.
 
 SSO는 별도 토큰 핸드오프 라우트가 필요 없다 — wms-frontend가
 `<tenant>.process-gpt.io/wms`로 ProcessGPT와 **같은 origin**에서 뜨기

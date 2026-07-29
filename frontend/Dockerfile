@@ -6,6 +6,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Empty (default) for a standalone deploy at domain root. Set to /wms/ when
+# building the image that runs behind process-gpt-vue3's gateway, which
+# reaches this app at <tenant>.process-gpt.io/wms — see vite.config.ts.
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 RUN npm run build
 
 FROM nginx:1.27-alpine
