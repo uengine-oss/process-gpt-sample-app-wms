@@ -107,7 +107,7 @@
 
 create table wms.labor_activities (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- the worker the activity is attributed to. D2 keeps this honest.
   actor_id uuid not null references auth.users(id) on delete cascade,
@@ -194,7 +194,7 @@ grant select on wms.labor_activities to authenticated;
 
 -- D2 in one place. Returns true when the caller may act under p_actor_id.
 create or replace function wms._wms_labor_actor_ok(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_actor_id uuid
 ) returns boolean
 language sql stable security definer
@@ -254,7 +254,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_start_labor_activity(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_activity_type text,
   p_actor_id uuid,
@@ -366,7 +366,7 @@ declare
   v_cached jsonb;
   v_act wms.labor_activities%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.labor_activities where id = p_activity_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -445,7 +445,7 @@ declare
   v_cached jsonb;
   v_act wms.labor_activities%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.labor_activities where id = p_activity_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -509,7 +509,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_get_labor_productivity(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_period_start timestamptz,
   p_period_end timestamptz,
@@ -609,7 +609,7 @@ end;
 $$;
 
 create or replace function wms.wms_get_labor_leaderboard(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_period_start timestamptz,
   p_period_end timestamptz,
@@ -711,7 +711,7 @@ $$;
 -- Simple ratio arithmetic, NOT a forecast model. The response says so in a
 -- machine-readable field (`method`) so no consumer can mistake it for one.
 create or replace function wms.wms_forecast_labor_demand(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_role text,
   p_expected_volume numeric,
@@ -805,12 +805,12 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_start_labor_activity(uuid, uuid, text, uuid, uuid, text, text, uuid, text) to authenticated;
+grant execute on function wms.wms_start_labor_activity(text, uuid, text, uuid, uuid, text, text, uuid, text) to authenticated;
 grant execute on function wms.wms_complete_labor_activity(uuid, uuid, uuid, int, numeric, text) to authenticated;
 grant execute on function wms.wms_cancel_labor_activity(uuid, uuid, uuid, int, text, text) to authenticated;
-grant execute on function wms.wms_get_labor_productivity(uuid, uuid, timestamptz, timestamptz, uuid, text) to authenticated;
-grant execute on function wms.wms_get_labor_leaderboard(uuid, uuid, timestamptz, timestamptz, text) to authenticated;
-grant execute on function wms.wms_forecast_labor_demand(uuid, uuid, text, numeric, int, numeric) to authenticated;
+grant execute on function wms.wms_get_labor_productivity(text, uuid, timestamptz, timestamptz, uuid, text) to authenticated;
+grant execute on function wms.wms_get_labor_leaderboard(text, uuid, timestamptz, timestamptz, text) to authenticated;
+grant execute on function wms.wms_forecast_labor_demand(text, uuid, text, numeric, int, numeric) to authenticated;
 
 -- _wms_labor_actor_ok and _wms_load_labor_activity are internal helpers:
 -- no grant, exactly like wms._wms_finalize_disposition in the core schema.

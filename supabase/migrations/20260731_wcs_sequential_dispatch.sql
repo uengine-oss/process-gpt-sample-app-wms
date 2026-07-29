@@ -106,7 +106,7 @@
 -- serial, no ledger effect. It exists so that "서열" has something to order.
 create table wms.outbound_orders (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- external/manual reference; duplicates are allowed on purpose — dedup is
   -- the idempotency_key's job, not this column's.
@@ -135,7 +135,7 @@ create table wms.outbound_orders (
 -- command), which area 2's 1:1 work-order shape cannot express.
 create table wms.dispatch_sequences (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   outbound_order_id uuid not null references wms.outbound_orders(id) on delete cascade,
   wave_id uuid not null references wms.dispatch_waves(id) on delete restrict,
@@ -237,7 +237,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_command wms.equipment_commands%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -655,7 +655,7 @@ execute function wms._wms_propagate_palletize_result();
 -- ============================================================
 
 create or replace function wms.wms_create_outbound_order(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_store_code text,
   p_product_id uuid,
@@ -759,7 +759,7 @@ declare
   v_order_before jsonb;
   v_wave wms.dispatch_waves%rowtype;
   v_sequence wms.dispatch_sequences%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.outbound_orders where id = p_outbound_order_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -877,7 +877,7 @@ declare
   v_sibling wms.dispatch_sequences%rowtype;
   v_sibling_before jsonb;
   v_command wms.equipment_commands%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
   v_cancelled_command uuid;
   v_siblings uuid[] := '{}';
@@ -1027,7 +1027,7 @@ declare
   v_sequence wms.dispatch_sequences%rowtype;
   v_sequence_id uuid;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
   v_sequence_ids uuid[] := '{}';
 begin
@@ -1199,7 +1199,7 @@ $$;
 -- plus the raw material the /wcs/sequential-dispatch screen needs (waves,
 -- ROBOT_CELLs, pallet roll-up). Mirrors wms_get_work_order_status's shape.
 create or replace function wms.wms_get_dispatch_sequence_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_wave_id uuid default null,
   p_outbound_order_id uuid default null
@@ -1375,7 +1375,7 @@ $$;
 -- A command with no result reported yet returns an EMPTY manifest, not an
 -- error (spec.md "아직 결과가 보고되지 않은 명령의 매니페스트는 비어 있다").
 create or replace function wms.wms_get_pallet_manifest(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_command_id uuid default null,
   p_target_pallet_code text default null
@@ -1463,9 +1463,9 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_create_outbound_order(uuid, uuid, text, uuid, numeric, uuid, uuid, text, date, numeric, numeric, text) to authenticated;
+grant execute on function wms.wms_create_outbound_order(text, uuid, text, uuid, numeric, uuid, uuid, text, date, numeric, numeric, text) to authenticated;
 grant execute on function wms.wms_assign_dispatch_sequence(uuid, uuid, int, text, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_cancel_dispatch_sequence(uuid, uuid, uuid, int, text, text) to authenticated;
 grant execute on function wms.wms_dispatch_palletize_command(uuid, uuid, text, uuid, uuid, int, numeric, numeric, text) to authenticated;
-grant execute on function wms.wms_get_dispatch_sequence_status(uuid, uuid, uuid, uuid) to authenticated;
-grant execute on function wms.wms_get_pallet_manifest(uuid, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_get_dispatch_sequence_status(text, uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_pallet_manifest(text, uuid, uuid, text) to authenticated;

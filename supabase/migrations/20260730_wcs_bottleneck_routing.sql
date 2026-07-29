@@ -97,7 +97,7 @@
 -- no row at all, the system defaults below still produce a verdict (D4).
 create table wms.wcs_routing_policies (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- same value set as wms.equipment.equipment_type (area 1)
   equipment_type text not null
@@ -118,7 +118,7 @@ create table wms.wcs_routing_policies (
 -- exclusion is CLEARED so the audit trail keeps the reason and who lifted it.
 create table wms.wcs_routing_overrides (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   reason text not null check (btrim(reason) <> ''),
@@ -272,7 +272,7 @@ grant select on wms.wcs_equipment_bottleneck_status to authenticated;
 -- ============================================================
 
 create or replace function wms.wcs_select_available_equipment(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_type text,
   p_zone_code text,
@@ -325,9 +325,9 @@ end;
 $$;
 
 revoke execute on function
-  wms.wcs_select_available_equipment(uuid, uuid, text, text, interval) from public;
+  wms.wcs_select_available_equipment(text, uuid, text, text, interval) from public;
 
-comment on function wms.wcs_select_available_equipment(uuid, uuid, text, text, interval) is
+comment on function wms.wcs_select_available_equipment(text, uuid, text, text, interval) is
   'Internal candidate selection for wms_wes-material-flow-control dispatch. '
   'Hard-excludes ACTIVE wcs_routing_overrides, soft-avoids bottleneck-flagged '
   'equipment (falling back to it when nothing else is left), then applies area '
@@ -380,7 +380,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_register_wcs_routing_policy(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_type text,
   p_queue_depth_threshold int,
@@ -481,7 +481,7 @@ declare
   v_cached jsonb;
   v_policy wms.wcs_routing_policies%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.wcs_routing_policies where id = p_policy_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -567,7 +567,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_override wms.wcs_routing_overrides%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
@@ -658,7 +658,7 @@ declare
   v_override wms.wcs_routing_overrides%rowtype;
   v_before jsonb;
   v_equipment wms.equipment%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.wcs_routing_overrides where id = p_override_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -729,7 +729,7 @@ $$;
 -- its reasons, and any active exclusion — plus the warehouse's threshold
 -- policies so one call can drive the whole /wcs/routing screen.
 create or replace function wms.wms_get_equipment_routing_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_id uuid default null
 ) returns jsonb
@@ -807,8 +807,8 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_register_wcs_routing_policy(uuid, uuid, text, int, int, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_register_wcs_routing_policy(text, uuid, text, int, int, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_update_wcs_routing_policy(uuid, uuid, uuid, int, int, int, text) to authenticated;
 grant execute on function wms.wms_exclude_equipment_from_routing(uuid, text, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_clear_equipment_routing_exclusion(uuid, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_get_equipment_routing_status(uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_equipment_routing_status(text, uuid, uuid) to authenticated;

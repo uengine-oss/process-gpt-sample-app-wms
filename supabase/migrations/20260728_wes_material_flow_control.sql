@@ -47,7 +47,7 @@
 
 create table wms.dispatch_waves (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   status text not null default 'OPEN' check (status in ('OPEN', 'RELEASED')),
   version int not null default 1,
@@ -62,7 +62,7 @@ create table wms.dispatch_waves (
 
 create table wms.work_orders (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- open sets on purpose (design.md D1/D7 pattern): follow-up specs add
   -- values (e.g. 'REPLENISHMENT', 'outbound_wave') without reshaping the table.
@@ -319,7 +319,7 @@ execute function wms._wms_propagate_command_result_to_work_order();
 -- ============================================================
 
 create or replace function wms.wms_open_dispatch_wave(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_actor_id uuid,
   p_idempotency_key uuid,
@@ -377,7 +377,7 @@ $$;
 -- WAVELESS work orders attempt their dispatch inside this same transaction;
 -- WAVE work orders wait for wms_release_dispatch_wave (design.md D6).
 create or replace function wms.wms_create_work_order(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_work_order_type text,
   p_linked_entity_type text,
@@ -526,7 +526,7 @@ declare
   v_cached jsonb;
   v_wave wms.dispatch_waves%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_row record;
   v_attempt jsonb;
   v_dispatched int := 0;
@@ -635,7 +635,7 @@ declare
   v_cached jsonb;
   v_work_order wms.work_orders%rowtype;
   v_attempt jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_links jsonb := '{}'::jsonb;
 begin
   select tenant_id into v_tenant_id from wms.work_orders where id = p_work_order_id;
@@ -727,7 +727,7 @@ declare
   v_work_order wms.work_orders%rowtype;
   v_before jsonb;
   v_command wms.equipment_commands%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
   v_cancelled_command uuid;
 begin
@@ -802,7 +802,7 @@ $$;
 -- Read-only join: work orders + their equipment command + wave, plus the
 -- warehouse's waves. Mirrors wms_get_equipment_status's shape.
 create or replace function wms.wms_get_work_order_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_work_order_id uuid default null
 ) returns jsonb
@@ -884,9 +884,9 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_open_dispatch_wave(uuid, uuid, uuid, uuid, text) to authenticated;
-grant execute on function wms.wms_create_work_order(uuid, uuid, text, text, uuid, text, text, text, jsonb, text, uuid, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_open_dispatch_wave(text, uuid, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_create_work_order(text, uuid, text, text, uuid, text, text, text, jsonb, text, uuid, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_release_dispatch_wave(uuid, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_retry_work_order_dispatch(uuid, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_cancel_work_order(uuid, uuid, uuid, int, text, text) to authenticated;
-grant execute on function wms.wms_get_work_order_status(uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_work_order_status(text, uuid, uuid) to authenticated;

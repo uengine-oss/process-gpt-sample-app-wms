@@ -245,7 +245,7 @@
 
 create table wms.agent_decisions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- V7: open set. Used by this contract: DISPATCH_RETRY (LOGGED),
   -- LABOR_REBALANCE / EQUIPMENT_ROUTING_SUGGESTION (PROPOSED).
@@ -398,7 +398,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_log_agent_decision(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_reasoning text,
   p_actor_id uuid,
@@ -482,7 +482,7 @@ end;
 $$;
 
 create or replace function wms.wms_propose_agent_action(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_proposal_type text,
   p_reasoning text,
@@ -584,7 +584,7 @@ declare
   v_cached jsonb;
   v_before wms.agent_decisions%rowtype;
   v_row wms.agent_decisions%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.agent_decisions where id = p_decision_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -652,7 +652,7 @@ declare
   v_cached jsonb;
   v_before wms.agent_decisions%rowtype;
   v_row wms.agent_decisions%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.agent_decisions where id = p_decision_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -721,7 +721,7 @@ $$;
 -- Labor balance (V1, V2)
 -- ------------------------------------------------------------
 create or replace function wms.wms_get_labor_balance_signals(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_period_start timestamptz default now() - interval '1 day',
   p_period_end timestamptz default now()
@@ -858,7 +858,7 @@ $$;
 -- Dispatch delay (V3, V4)
 -- ------------------------------------------------------------
 create or replace function wms.wms_get_dispatch_delay_signals(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_wave_id uuid default null,
   p_delay_threshold_minutes int default 15
@@ -996,7 +996,7 @@ $$;
 -- Worker next actions (V5, V6)
 -- ------------------------------------------------------------
 create or replace function wms.wms_get_worker_next_actions(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_actor_id uuid,
   p_include_closed boolean default false
@@ -1102,7 +1102,7 @@ $$;
 -- Decision / proposal history
 -- ------------------------------------------------------------
 create or replace function wms.wms_get_agent_decisions(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_status text default null,
   p_proposal_type text default null
@@ -1189,11 +1189,11 @@ $$;
 -- wms._wms_pick_equipment_for_work_order.
 -- ============================================================
 
-grant execute on function wms.wms_log_agent_decision(uuid, uuid, text, uuid, uuid, text, text, uuid, jsonb, text) to authenticated;
-grant execute on function wms.wms_propose_agent_action(uuid, uuid, text, text, jsonb, uuid, uuid, text, uuid, jsonb, text) to authenticated;
+grant execute on function wms.wms_log_agent_decision(text, uuid, text, uuid, uuid, text, text, uuid, jsonb, text) to authenticated;
+grant execute on function wms.wms_propose_agent_action(text, uuid, text, text, jsonb, uuid, uuid, text, uuid, jsonb, text) to authenticated;
 grant execute on function wms.wms_confirm_agent_proposal(uuid, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_reject_agent_proposal(uuid, text, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_get_labor_balance_signals(uuid, uuid, timestamptz, timestamptz) to authenticated;
-grant execute on function wms.wms_get_dispatch_delay_signals(uuid, uuid, uuid, int) to authenticated;
-grant execute on function wms.wms_get_worker_next_actions(uuid, uuid, uuid, boolean) to authenticated;
-grant execute on function wms.wms_get_agent_decisions(uuid, uuid, text, text) to authenticated;
+grant execute on function wms.wms_get_labor_balance_signals(text, uuid, timestamptz, timestamptz) to authenticated;
+grant execute on function wms.wms_get_dispatch_delay_signals(text, uuid, uuid, int) to authenticated;
+grant execute on function wms.wms_get_worker_next_actions(text, uuid, uuid, boolean) to authenticated;
+grant execute on function wms.wms_get_agent_decisions(text, uuid, text, text) to authenticated;

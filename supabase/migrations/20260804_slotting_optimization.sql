@@ -144,7 +144,7 @@
 -- a wrong recommendation and nothing here can tell).
 create table wms.storage_locations (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   zone_code text not null,
   location_code text not null,
@@ -177,7 +177,7 @@ create index storage_locations_warehouse_rank_idx
 -- recommendations.
 create table wms.slotting_class_policies (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   velocity_class text not null check (velocity_class in ('A', 'B', 'C')),
   max_accessibility_rank int not null check (max_accessibility_rank > 0),
@@ -200,7 +200,7 @@ create table wms.slotting_class_policies (
 -- learns how often that happened.
 create table wms.sku_velocity_snapshots (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   product_id uuid not null references wms.products(id) on delete cascade,
   window_start date not null,
@@ -228,7 +228,7 @@ create index sku_velocity_snapshots_warehouse_computed_idx
 -- (Non-Goals — the same scope reduction wms_create_putaway_tasks already made).
 create table wms.slotting_recommendations (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   product_id uuid not null references wms.products(id) on delete cascade,
   velocity_snapshot_id uuid not null references wms.sku_velocity_snapshots(id) on delete cascade,
@@ -278,7 +278,7 @@ create index slotting_recommendations_snapshot_idx
 -- Declared last because source_recommendation_id points at the table above.
 create table wms.sku_location_assignments (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   product_id uuid not null references wms.products(id) on delete cascade,
   location_id uuid not null references wms.storage_locations(id) on delete cascade,
@@ -395,7 +395,7 @@ grant select on wms.slotting_recommendation_overview_v to authenticated;
 -- policy management is master-data work, so INBOUND_OPERATOR and PROCESS_AGENT
 -- are out (same line wms.register_equipment and wms.register_dock drew).
 create or replace function wms._wms_slotting_admin_guard(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_what text
 ) returns void
@@ -483,7 +483,7 @@ $$;
 -- V1: p_capacity_qty moved after p_idempotency_key so the required parameters
 -- precede the optional ones. Names/types/defaults are as designed.
 create or replace function wms.wms_register_storage_location(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_zone_code text,
   p_location_code text,
@@ -579,7 +579,7 @@ declare
   v_cached jsonb;
   v_loc wms.storage_locations%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_orphaned int;
 begin
   select tenant_id into v_tenant_id from wms.storage_locations where id = p_location_id;
@@ -653,7 +653,7 @@ $$;
 -- the person who knows where it went (same reasoning that lets them run
 -- wms_create_putaway_tasks).
 create or replace function wms.wms_assign_sku_location(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_product_id uuid,
   p_location_id uuid,
@@ -751,7 +751,7 @@ declare
   v_asg wms.sku_location_assignments%rowtype;
   v_loc wms.storage_locations%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.sku_location_assignments where id = p_assignment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -823,7 +823,7 @@ end;
 $$;
 
 create or replace function wms.wms_register_slotting_class_policy(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_velocity_class text,
   p_max_accessibility_rank int,
@@ -918,7 +918,7 @@ declare
   v_cached jsonb;
   v_pol wms.slotting_class_policies%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_qualifying int;
 begin
   select tenant_id into v_tenant_id from wms.slotting_class_policies where id = p_policy_id;
@@ -1001,7 +1001,7 @@ $$;
 -- spec.md has a scenario asserting exactly it.
 -- ------------------------------------------------------------
 create or replace function wms.wms_compute_sku_velocity(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_window_start date,
   p_window_end date,
@@ -1168,7 +1168,7 @@ $$;
 -- may do it (D6); nothing here changes a placement.
 -- ------------------------------------------------------------
 create or replace function wms.wms_generate_slotting_recommendations(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_velocity_batch_id uuid,
   p_actor_id uuid,
@@ -1369,7 +1369,7 @@ declare
   v_cached jsonb;
   v_rec wms.slotting_recommendations%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_new_status text;
 begin
   select tenant_id into v_tenant_id from wms.slotting_recommendations where id = p_recommendation_id;
@@ -1472,7 +1472,7 @@ declare
   v_asg_before jsonb;
   v_asg wms.sku_location_assignments%rowtype;
   v_loc wms.storage_locations%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_created boolean := false;
 begin
   select tenant_id into v_tenant_id from wms.slotting_recommendations where id = p_recommendation_id;
@@ -1578,14 +1578,14 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_register_storage_location(uuid, uuid, text, text, int, uuid, uuid, numeric, text) to authenticated;
+grant execute on function wms.wms_register_storage_location(text, uuid, text, text, int, uuid, uuid, numeric, text) to authenticated;
 grant execute on function wms.wms_set_storage_location_status(uuid, text, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_assign_sku_location(uuid, uuid, uuid, uuid, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_assign_sku_location(text, uuid, uuid, uuid, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_reassign_sku_location(uuid, uuid, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_register_slotting_class_policy(uuid, uuid, text, int, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_register_slotting_class_policy(text, uuid, text, int, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_update_slotting_class_policy(uuid, int, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_compute_sku_velocity(uuid, uuid, date, date, uuid, uuid, text) to authenticated;
-grant execute on function wms.wms_generate_slotting_recommendations(uuid, uuid, uuid, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_compute_sku_velocity(text, uuid, date, date, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_generate_slotting_recommendations(text, uuid, uuid, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_review_slotting_recommendation(uuid, text, uuid, uuid, int, text, text) to authenticated;
 grant execute on function wms.wms_apply_slotting_recommendation(uuid, uuid, uuid, int, text) to authenticated;
 

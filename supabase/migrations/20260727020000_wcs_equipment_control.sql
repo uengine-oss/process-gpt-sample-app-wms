@@ -27,7 +27,7 @@
 
 create table wms.equipment (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_code text not null,
   equipment_type text not null
@@ -46,7 +46,7 @@ create table wms.equipment (
 
 create table wms.equipment_faults (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   fault_code text not null,
@@ -66,7 +66,7 @@ create table wms.equipment_faults (
 
 create table wms.equipment_commands (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   -- open set on purpose (design.md D7): follow-up specs extend this list
@@ -96,7 +96,7 @@ create table wms.equipment_status_events (
   -- single RPC emits them in the same transaction (e.g. raise_fault emits
   -- COMMAND_FAILED then FAULT_RAISED). Monitoring feeds order by this.
   seq bigserial not null,
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   command_id uuid references wms.equipment_commands(id) on delete set null,
@@ -211,7 +211,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_register_equipment(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_code text,
   p_equipment_type text,
@@ -297,7 +297,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_command wms.equipment_commands%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -387,7 +387,7 @@ declare
   v_command wms.equipment_commands%rowtype;
   v_before jsonb;
   v_equipment wms.equipment%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_event_type text;
 begin
   select tenant_id into v_tenant_id from wms.equipment_commands where id = p_command_id;
@@ -503,7 +503,7 @@ declare
   v_equipment wms.equipment%rowtype;
   v_before jsonb;
   v_previous_status text;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -596,7 +596,7 @@ declare
   v_fault wms.equipment_faults%rowtype;
   v_command wms.equipment_commands%rowtype;
   v_failed uuid[] := '{}';
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -724,7 +724,7 @@ declare
   v_previous_status text;
   v_open_left int;
   v_warnings jsonb := '[]'::jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment_faults where id = p_fault_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -828,7 +828,7 @@ declare
   v_command wms.equipment_commands%rowtype;
   v_before jsonb;
   v_equipment wms.equipment%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment_commands where id = p_command_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -903,7 +903,7 @@ $$;
 -- command flag. Mirrors wms_check_stock's shape (stable security definer
 -- with an explicit warehouse-scope guard).
 create or replace function wms.wms_get_equipment_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_id uuid default null,
   p_event_limit int default 5
@@ -980,11 +980,11 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_register_equipment(uuid, uuid, text, text, text, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_register_equipment(text, uuid, text, text, text, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_dispatch_equipment_command(uuid, text, jsonb, uuid, uuid, int, text, text, uuid) to authenticated;
 grant execute on function wms.wms_report_command_result(uuid, text, uuid, uuid, int, jsonb, text) to authenticated;
 grant execute on function wms.wms_report_equipment_status(uuid, text, uuid, uuid, int, jsonb, text) to authenticated;
 grant execute on function wms.wms_raise_equipment_fault(uuid, text, text, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_resolve_equipment_fault(uuid, text, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_cancel_equipment_command(uuid, uuid, uuid, int, text, text) to authenticated;
-grant execute on function wms.wms_get_equipment_status(uuid, uuid, uuid, int) to authenticated;
+grant execute on function wms.wms_get_equipment_status(text, uuid, uuid, int) to authenticated;

@@ -619,7 +619,7 @@ comment on function wms.describe_audit_event(text, text, jsonb, jsonb, text) is
 -- the repo-wide "admin is always a superset" convention.
 -- ============================================================
 
-create or replace function wms._audit_require_reader(p_tenant_id uuid)
+create or replace function wms._audit_require_reader(p_tenant_id text)
 returns void
 language plpgsql stable security definer
 set search_path = wms, public
@@ -662,7 +662,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_query_audit_log(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_date_from timestamptz default null,
   p_date_to timestamptz default null,
   p_actor_id uuid default null,
@@ -809,7 +809,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_export_audit_log(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_date_from timestamptz default null,
   p_date_to timestamptz default null,
   p_actor_id uuid default null,
@@ -955,10 +955,8 @@ grant execute on function wms._audit_opt(text, text) to authenticated;
 grant execute on function wms._audit_chg(jsonb, jsonb, text) to authenticated;
 grant execute on function wms._audit_entity_ko(text) to authenticated;
 grant execute on function wms.describe_audit_event(text, text, jsonb, jsonb, text) to authenticated;
-grant execute on function wms.wms_query_audit_log(
-  uuid, timestamptz, timestamptz, uuid, text, uuid, text, text, int, int) to authenticated;
-grant execute on function wms.wms_export_audit_log(
-  uuid, timestamptz, timestamptz, uuid, text, uuid, text, text, int) to authenticated;
+grant execute on function wms.wms_query_audit_log(text, timestamptz, timestamptz, uuid, text, uuid, text, text, int, int) to authenticated;
+grant execute on function wms.wms_export_audit_log(text, timestamptz, timestamptz, uuid, text, uuid, text, text, int) to authenticated;
 
 -- The two internal guards stay ungranted, matching wms._wms_load_agent_proposal
 -- and wms._wms_pick_equipment_for_work_order.

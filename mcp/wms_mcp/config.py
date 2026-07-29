@@ -31,6 +31,16 @@ def _env(name: str, default: str = "") -> str:
 SUPABASE_URL: str = _env("SUPABASE_URL", "http://127.0.0.1:55321")
 SUPABASE_ANON_KEY: str = _env("SUPABASE_ANON_KEY")
 
+# Used ONLY to call wms_ensure_tenant_provisioned (see client.py's
+# _service_role_client). Every other RPC in this server signs in as one of
+# the three named identities below over the anon key, same as a human user,
+# so RLS applies the same way (design.md D3). This key bypasses RLS across
+# the WHOLE Supabase project (not just the wms schema) and must never reach
+# a browser or be reused for anything else. Optional: if unset, tenant
+# auto-provisioning is skipped (fine for local dev, where supabase/seed.sql
+# already provisions tenants A/B) and a warning is logged on first RPC call.
+SUPABASE_SERVICE_ROLE_KEY: str = _env("SUPABASE_SERVICE_ROLE_KEY")
+
 WMS_PROCESS_AGENT_EMAIL: str = _env("WMS_PROCESS_AGENT_EMAIL")
 WMS_PROCESS_AGENT_PASSWORD: str = _env("WMS_PROCESS_AGENT_PASSWORD")
 
@@ -60,7 +70,8 @@ def log_config_summary() -> None:
     logger = logging.getLogger("wms_mcp")
     logger.info(
         "wms-mcp config: SUPABASE_URL=%s PORT=%s PROCESS_AGENT_EMAIL=%s WCS_GATEWAY_EMAIL=%s "
-        "AUDITOR_EMAIL=%s",
+        "AUDITOR_EMAIL=%s SERVICE_ROLE_KEY=%s",
         SUPABASE_URL, SERVER_PORT, WMS_PROCESS_AGENT_EMAIL or "(unset)",
         WMS_WCS_GATEWAY_EMAIL or "(unset)", WMS_AUDITOR_EMAIL or "(unset)",
+        "(set)" if SUPABASE_SERVICE_ROLE_KEY else "(unset, tenant auto-provisioning disabled)",
     )

@@ -60,6 +60,62 @@ def get_gateway_client():
     )
 
 
+_provisioned_tenants: set[str] = set()
+_service_role_client = None
+
+
+def _get_service_role_client():
+    """Lazily create the one client in this server that authenticates with
+    the Supabase service_role key instead of a signed-in identity.
+
+    wms_ensure_tenant_provisioned is granted to service_role only (not
+    authenticated) because it assigns tenant membership/roles by
+    caller-supplied email — see the migration's header comment for why that
+    can't be left open to any signed-in user on a Supabase project shared
+    with ProcessGPT's own production data. Every other RPC in this server
+    keeps using the per-identity anon-key clients in this module unchanged.
+    """
+    global _service_role_client
+    if _service_role_client is None:
+        _service_role_client = create_client(
+            config.SUPABASE_URL,
+            config.SUPABASE_SERVICE_ROLE_KEY,
+            options=ClientOptions(schema="wms"),
+        )
+    return _service_role_client
+
+
+def ensure_tenant_provisioned(tenant_id: str) -> None:
+    """Idempotently provision a brand-new ProcessGPT tenant in the wms schema
+    (tenant/warehouse/service-identity memberships/demo master data) the
+    first time wms-mcp sees it, so a production tenant doesn't need a manual
+    seed step before it can call any wms_* tool.
+
+    No-ops with a warning if SUPABASE_SERVICE_ROLE_KEY isn't configured
+    (local dev typically relies on supabase/seed.sql instead).
+
+    Cheap to call on every RPC: the DB-side RPC short-circuits immediately
+    once the tenant row exists, and this in-process set skips even that
+    round trip for tenants already confirmed provisioned by this process.
+    """
+    if not tenant_id or tenant_id in _provisioned_tenants:
+        return
+    if not config.SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning(
+            "SUPABASE_SERVICE_ROLE_KEY not set; skipping auto-provisioning for tenant_id=%s "
+            "(wms_* calls will fail with FORBIDDEN/FK errors unless this tenant was seeded another way)",
+            tenant_id,
+        )
+        return
+    _get_service_role_client().rpc("wms_ensure_tenant_provisioned", {
+        "p_tenant_id": tenant_id,
+        "p_process_agent_email": config.WMS_PROCESS_AGENT_EMAIL or None,
+        "p_wcs_gateway_email": config.WMS_WCS_GATEWAY_EMAIL or None,
+        "p_auditor_email": config.WMS_AUDITOR_EMAIL or None,
+    }).execute()
+    _provisioned_tenants.add(tenant_id)
+
+
 def get_auditor_client():
     """Return (client, auditor_user_id), signed in as the demo AUDITOR identity.
 

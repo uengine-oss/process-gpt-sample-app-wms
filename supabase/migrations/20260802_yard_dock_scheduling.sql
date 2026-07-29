@@ -91,7 +91,7 @@ create extension if not exists btree_gist;
 
 create table wms.docks (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   code text not null,
   name text not null,
@@ -111,7 +111,7 @@ create table wms.docks (
 
 create table wms.dock_appointments (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   dock_id uuid not null references wms.docks(id) on delete cascade,
   appointment_type text not null default 'INBOUND'
@@ -225,7 +225,7 @@ $$;
 -- ============================================================
 
 create or replace function wms.wms_register_dock(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_code text,
   p_name text,
@@ -310,7 +310,7 @@ declare
   v_cached jsonb;
   v_dock wms.docks%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.docks where id = p_dock_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -397,7 +397,7 @@ declare
   v_dock wms.docks%rowtype;
   v_appt wms.dock_appointments%rowtype;
   v_po wms.purchase_orders%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_type text := coalesce(p_appointment_type, 'INBOUND');
 begin
   select tenant_id into v_tenant_id from wms.docks where id = p_dock_id;
@@ -527,7 +527,7 @@ declare
   v_cached jsonb;
   v_appt wms.dock_appointments%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.dock_appointments where id = p_appointment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -597,7 +597,7 @@ declare
   v_appt wms.dock_appointments%rowtype;
   v_before jsonb;
   v_dock wms.docks%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.dock_appointments where id = p_appointment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -673,7 +673,7 @@ declare
   v_before jsonb;
   v_dock wms.docks%rowtype;
   v_dock_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.dock_appointments where id = p_appointment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -763,7 +763,7 @@ declare
   v_dock wms.docks%rowtype;
   v_dock_before jsonb;
   v_warnings jsonb := '[]'::jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.dock_appointments where id = p_appointment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -836,7 +836,7 @@ $$;
 -- whose window intersects [from, to). Mirrors wms_get_equipment_status's shape
 -- (stable security definer with an explicit warehouse-scope guard).
 create or replace function wms.wms_get_dock_schedule(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_from timestamptz default null,
   p_to timestamptz default null,
@@ -918,14 +918,14 @@ begin
 end;
 $$;
 
-grant execute on function wms.wms_register_dock(uuid, uuid, text, text, uuid, uuid, text) to authenticated;
+grant execute on function wms.wms_register_dock(text, uuid, text, text, uuid, uuid, text) to authenticated;
 grant execute on function wms.wms_set_dock_status(uuid, text, uuid, uuid, int, text, text) to authenticated;
 grant execute on function wms.wms_schedule_dock_appointment(uuid, timestamptz, timestamptz, uuid, uuid, text, uuid, text, text, text, uuid, text) to authenticated;
 grant execute on function wms.wms_cancel_dock_appointment(uuid, uuid, uuid, int, text, text) to authenticated;
 grant execute on function wms.wms_check_in_vehicle(uuid, uuid, uuid, int, text, text, text) to authenticated;
 grant execute on function wms.wms_dock_vehicle(uuid, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_depart_vehicle(uuid, uuid, uuid, int, text) to authenticated;
-grant execute on function wms.wms_get_dock_schedule(uuid, uuid, timestamptz, timestamptz, uuid, boolean) to authenticated;
+grant execute on function wms.wms_get_dock_schedule(text, uuid, timestamptz, timestamptz, uuid, boolean) to authenticated;
 
 -- _wms_load_dock_appointment is an internal helper: no grant, exactly like
 -- wms._wms_finalize_disposition in the core schema.

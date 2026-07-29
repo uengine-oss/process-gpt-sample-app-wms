@@ -8,6 +8,18 @@ The installer is additive and idempotent:
 * upserts the WMS replenishment process and its three human-task forms.
 
 It intentionally does not reset instances or WMS business data.
+
+Defaults target the single local-dev tenant ("localhost", tenant-A's fixed
+warehouse/SKU from supabase/seed.sql) exactly as before. For a real
+multi-tenant deployment, pass --tenant-id/--warehouse-id/--owner-email to
+install the same process into a specific trainee's ProcessGPT tenant —
+--warehouse-id is that tenant's wms.warehouses.id, printed by
+scripts/onboard_trainee.py (or look it up in Supabase Studio: `select id
+from wms.warehouses where tenant_id = '<tenant_id>'`), and --owner-email is
+the trainee's ProcessGPT login, used to look up the ProcessGPT user id that
+owns the installed process definition. Requires ProcessGPT's own
+SERVICE_ROLE_KEY (not the wms Supabase project's) since it writes directly
+to ProcessGPT's public schema.
 """
 
 from __future__ import annotations
@@ -663,17 +675,50 @@ def install(api: Postgrest, mcp_url: str) -> None:
 
 
 def main() -> None:
+    global TENANT_ID, WMS_TENANT_ID, WMS_WAREHOUSE_ID, DEMO_SKU, DEMO_USER_ID
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-file", default=str(Path(__file__).resolve().parents[3] / ".env"))
     parser.add_argument("--processgpt-url", default="http://127.0.0.1:54321")
     parser.add_argument("--mcp-url", default="http://host.docker.internal:8199/mcp")
+    parser.add_argument(
+        "--tenant-id", default=TENANT_ID,
+        help="ProcessGPT tenant_id to install into (default: local-dev 'localhost')",
+    )
+    parser.add_argument(
+        "--warehouse-id", default=WMS_WAREHOUSE_ID,
+        help="wms.warehouses.id for this tenant — printed by scripts/onboard_trainee.py",
+    )
+    parser.add_argument("--sku", default=DEMO_SKU, help="Demo SKU the replenishment agent watches")
+    parser.add_argument(
+        "--owner-email", default=None,
+        help="ProcessGPT login email that should own the installed process; looked up in "
+             "this tenant's `users` table. Defaults to the local demo user id.",
+    )
     args = parser.parse_args()
 
     env = read_env(Path(args.env_file))
     service_key = os.getenv("SERVICE_ROLE_KEY") or env.get("SERVICE_ROLE_KEY")
     if not service_key:
         raise SystemExit("SERVICE_ROLE_KEY is required")
-    install(Postgrest(args.processgpt_url, service_key), args.mcp_url)
+
+    TENANT_ID = args.tenant_id
+    WMS_TENANT_ID = args.tenant_id
+    WMS_WAREHOUSE_ID = args.warehouse_id
+    DEMO_SKU = args.sku
+
+    api = Postgrest(args.processgpt_url, service_key)
+
+    if args.owner_email:
+        owner_rows = api.request(
+            "users",
+            query={"tenant_id": f"eq.{TENANT_ID}", "email": f"eq.{args.owner_email}", "select": "id"},
+        )
+        if not owner_rows:
+            raise SystemExit(f"No ProcessGPT user with email {args.owner_email} in tenant {TENANT_ID}")
+        DEMO_USER_ID = owner_rows[0]["id"]
+
+    install(api, args.mcp_url)
 
 
 if __name__ == "__main__":

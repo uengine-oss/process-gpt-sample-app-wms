@@ -1,0 +1,33 @@
+# Production/demo compose for wms-frontend + wms-mcp. Supabase itself is
+# NOT included here — this deployment targets an existing Supabase SaaS
+# project (the same one ProcessGPT's own backend uses), not a self-hosted
+# instance. See docs/05-deployment.md for the full rollout sequence
+# (migrations, per-trainee onboarding, ProcessGPT MCP registration, the
+# gateway's /sso and /t/:tenantId contract).
+#
+# Put a TLS-terminating reverse proxy (Caddy/Traefik/nginx) in front of both
+# services for anything beyond a local smoke test — neither container
+# terminates TLS itself. Point the gateway/reverse proxy at wms-frontend's
+# 5273 and wms-mcp's 8199.
+
+services:
+  wms-mcp:
+    build: ./mcp
+    image: wms-mcp:latest
+    restart: unless-stopped
+    ports:
+      - "8199:8199"
+    env_file:
+      - ./mcp/.env.prod
+    environment:
+      WMS_MCP_PORT: "8199"
+
+  wms-frontend:
+    build: ./frontend
+    image: wms-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "5273:5273"
+    environment:
+      VITE_SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}

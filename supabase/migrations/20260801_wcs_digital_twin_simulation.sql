@@ -113,7 +113,7 @@ create index equipment_is_simulated_idx on wms.equipment (warehouse_id, is_simul
 
 create table wms.simulation_profiles (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   -- PENDING -> ACKNOWLEDGED
@@ -148,7 +148,7 @@ create table wms.simulation_profiles (
 -- contract does not keep a second copy of a fact.
 create table wms.simulation_command_schedules (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   equipment_id uuid not null references wms.equipment(id) on delete cascade,
   command_id uuid not null references wms.equipment_commands(id) on delete cascade,
@@ -172,7 +172,7 @@ create table wms.simulation_command_schedules (
 
 create table wms.simulation_scenarios (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   name text not null,
   -- open set on purpose (area 1 D7's pattern): follow-ups add values without
@@ -196,7 +196,7 @@ create table wms.simulation_scenarios (
 
 create table wms.simulation_scenario_runs (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   scenario_id uuid not null references wms.simulation_scenarios(id) on delete cascade,
   projected_completion_at timestamptz not null,
@@ -405,7 +405,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
@@ -498,7 +498,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_profile wms.simulation_profiles%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -610,7 +610,7 @@ declare
   v_cached jsonb;
   v_profile wms.simulation_profiles%rowtype;
   v_before jsonb;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_ack_min int; v_ack_max int;
   v_prog_min int; v_prog_max int;
   v_comp_min int; v_comp_max int;
@@ -705,7 +705,7 @@ $$;
 -- model. `is_default=true` marks the D4 fallback so the UI can say "these are
 -- the system defaults, not something you configured".
 create or replace function wms.wms_get_simulation_profile(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_id uuid default null
 ) returns jsonb
@@ -793,7 +793,7 @@ declare
   v_detail jsonb;
   v_next_status text;
   v_first_delay int;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment_commands where id = p_command_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -908,7 +908,7 @@ $$;
 -- The worker's polling query. DEVIATION 3: also returns the commands that need
 -- a plan, so one round trip drives the whole loop.
 create or replace function wms.wms_get_due_simulation_actions(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_as_of timestamptz default now()
 ) returns jsonb
@@ -1013,7 +1013,7 @@ declare
   v_detail jsonb;
   v_report jsonb;
   v_terminal boolean;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_warnings jsonb := '[]'::jsonb;
 begin
   select tenant_id into v_tenant_id from wms.simulation_command_schedules where command_id = p_command_id;
@@ -1097,7 +1097,7 @@ begin
   end if;
 
   insert into wms.audit_events (tenant_id, actor_id, command, entity_type, entity_id, before, after, correlation_id)
-  values ((v_before->>'tenant_id')::uuid, p_actor_id, 'wms_advance_simulated_command',
+  values ((v_before->>'tenant_id')::text, p_actor_id, 'wms_advance_simulated_command',
           'simulation_command_schedule', (v_before->>'id')::uuid, v_before,
           case when v_terminal
                then jsonb_build_object('reported_status', v_reported, 'plan_completed', true,
@@ -1126,7 +1126,7 @@ begin
   );
   if p_idempotency_key is not null then
     insert into wms.idempotency_records (tenant_id, command_name, idempotency_key, response)
-    values ((v_before->>'tenant_id')::uuid, 'wms_advance_simulated_command', p_idempotency_key, v_cached)
+    values ((v_before->>'tenant_id')::text, 'wms_advance_simulated_command', p_idempotency_key, v_cached)
     on conflict do nothing;
   end if;
   return v_cached;
@@ -1136,7 +1136,7 @@ $$;
 -- Monitoring read, open to every warehouse member — unlike the gateway-only
 -- polling RPC above, this one answers "when is my command going to finish?".
 create or replace function wms.wms_get_simulation_schedule_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_id uuid default null,
   p_due_only boolean default false
@@ -1195,7 +1195,7 @@ end;
 $$;
 
 create or replace function wms.wms_create_simulation_scenario(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_name text,
   p_equipment_ids uuid[],
@@ -1316,7 +1316,7 @@ declare
   v_mean_ms numeric;
   v_rounds int;
   v_duration_ms int;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.simulation_scenarios where id = p_scenario_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -1443,7 +1443,7 @@ end;
 $$;
 
 create or replace function wms.wms_get_simulation_scenario_status(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_scenario_id uuid default null
 ) returns jsonb
@@ -1512,11 +1512,11 @@ $$;
 grant execute on function wms.wms_set_equipment_simulation_mode(uuid, boolean, uuid, uuid, int, text) to authenticated;
 grant execute on function wms.wms_register_simulation_profile(uuid, int, int, int, int, int, int, numeric, uuid, uuid, numeric, text) to authenticated;
 grant execute on function wms.wms_update_simulation_profile(uuid, uuid, uuid, int, int, int, int, int, int, int, numeric, numeric, text, text) to authenticated;
-grant execute on function wms.wms_get_simulation_profile(uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_simulation_profile(text, uuid, uuid) to authenticated;
 grant execute on function wms.wms_plan_simulated_command(uuid, uuid, uuid, text) to authenticated;
-grant execute on function wms.wms_get_due_simulation_actions(uuid, uuid, timestamptz) to authenticated;
+grant execute on function wms.wms_get_due_simulation_actions(text, uuid, timestamptz) to authenticated;
 grant execute on function wms.wms_advance_simulated_command(uuid, uuid, uuid, text) to authenticated;
-grant execute on function wms.wms_get_simulation_schedule_status(uuid, uuid, uuid, boolean) to authenticated;
-grant execute on function wms.wms_create_simulation_scenario(uuid, uuid, text, uuid[], int, uuid, uuid, text, text, uuid, text) to authenticated;
+grant execute on function wms.wms_get_simulation_schedule_status(text, uuid, uuid, boolean) to authenticated;
+grant execute on function wms.wms_create_simulation_scenario(text, uuid, text, uuid[], int, uuid, uuid, text, text, uuid, text) to authenticated;
 grant execute on function wms.wms_run_simulation_scenario(uuid, uuid, uuid, text) to authenticated;
-grant execute on function wms.wms_get_simulation_scenario_status(uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_simulation_scenario_status(text, uuid, uuid) to authenticated;

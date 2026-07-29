@@ -21,6 +21,7 @@ from pydantic import Field
 from .client import (
     WmsCommandError,
     classify_error,
+    ensure_tenant_provisioned,
     get_authed_client,
     get_auditor_client,
     get_gateway_client,
@@ -38,6 +39,8 @@ def _new_key() -> str:
 def _call_rpc(fn_name: str, params: dict) -> dict:
     client, _agent_user_id = get_authed_client()
     try:
+        if params.get("p_tenant_id"):
+            ensure_tenant_provisioned(params["p_tenant_id"])
         resp = client.rpc(fn_name, params).execute()
         return resp.data
     except Exception as exc:  # noqa: BLE001 - translated into a structured tool result below
@@ -52,6 +55,8 @@ def _call_rpc_as_gateway(fn_name: str, params: dict) -> dict:
     """
     client, _gateway_user_id = get_gateway_client()
     try:
+        if params.get("p_tenant_id"):
+            ensure_tenant_provisioned(params["p_tenant_id"])
         resp = client.rpc(fn_name, params).execute()
         return resp.data
     except Exception as exc:  # noqa: BLE001 - translated into a structured tool result below
@@ -67,6 +72,8 @@ def _call_rpc_as_auditor(fn_name: str, params: dict) -> dict:
     """
     client, _auditor_user_id = get_auditor_client()
     try:
+        if params.get("p_tenant_id"):
+            ensure_tenant_provisioned(params["p_tenant_id"])
         resp = client.rpc(fn_name, params).execute()
         return resp.data
     except Exception as exc:  # noqa: BLE001 - translated into a structured tool result below

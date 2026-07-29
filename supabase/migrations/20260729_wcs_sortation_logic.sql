@@ -83,7 +83,7 @@
 
 create table wms.sortation_profiles (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   -- unique: exactly one profile per equipment (design.md D7). A follow-up
   -- spec wanting equipment_type-level defaults would relax this column to
@@ -166,7 +166,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_command wms.equipment_commands%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -516,7 +516,7 @@ declare
   v_cached jsonb;
   v_equipment wms.equipment%rowtype;
   v_profile wms.sortation_profiles%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.equipment where id = p_equipment_id;
   if p_idempotency_key is not null and v_tenant_id is not null then
@@ -621,7 +621,7 @@ declare
   v_profile wms.sortation_profiles%rowtype;
   v_before jsonb;
   v_equipment wms.equipment%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
   v_min numeric;
   v_max numeric;
   v_warnings jsonb := '[]'::jsonb;
@@ -729,7 +729,7 @@ $$;
 -- (null when none is registered yet) plus its in-flight sortation commands and
 -- the last reported DIVERT outcome. Mirrors wms_get_equipment_status's shape.
 create or replace function wms.wms_get_sortation_profile(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_equipment_id uuid default null
 ) returns jsonb
@@ -811,4 +811,4 @@ $$;
 
 grant execute on function wms.wms_create_sortation_profile(uuid, int, numeric, numeric, int, uuid, uuid, text, text, text) to authenticated;
 grant execute on function wms.wms_update_sortation_profile(uuid, uuid, uuid, int, int, text, numeric, numeric, text, int, text, text) to authenticated;
-grant execute on function wms.wms_get_sortation_profile(uuid, uuid, uuid) to authenticated;
+grant execute on function wms.wms_get_sortation_profile(text, uuid, uuid) to authenticated;

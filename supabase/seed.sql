@@ -129,11 +129,11 @@ insert into wms.suppliers (tenant_id, name, email) values
 -- ------------------------------------------------------------
 
 insert into wms.docks (id, tenant_id, warehouse_id, code, name, status) values
-  ('30000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-00000000000a',
+  ('30000000-0000-0000-0000-00000000000a', 'localhost',
    '20000000-0000-0000-0000-00000000000a', 'DOCK-01', '입고 하역장 1', 'AVAILABLE'),
-  ('30000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-00000000000a',
+  ('30000000-0000-0000-0000-00000000000b', 'localhost',
    '20000000-0000-0000-0000-00000000000a', 'DOCK-02', '입고 하역장 2', 'AVAILABLE'),
-  ('30000000-0000-0000-0000-00000000000c', '10000000-0000-0000-0000-00000000000a',
+  ('30000000-0000-0000-0000-00000000000c', 'localhost',
    '20000000-0000-0000-0000-00000000000a', 'DOCK-03', '출고 상차장 1', 'AVAILABLE'),
   ('30000000-0000-0000-0000-00000000000d', '10000000-0000-0000-0000-00000000000b',
    '20000000-0000-0000-0000-00000000000b', 'DOCK-B1', 'Tenant B 하역장', 'AVAILABLE');
@@ -149,7 +149,7 @@ insert into wms.dock_appointments (
   tenant_id, warehouse_id, dock_id, appointment_type,
   carrier_name, vehicle_plate_no, scheduled_start, scheduled_end, status
 ) values (
-  '10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a',
+  'localhost', '20000000-0000-0000-0000-00000000000a',
   '30000000-0000-0000-0000-00000000000c', 'OUTBOUND',
   '한빛운수', '77바1234',
   date_trunc('day', now()) + interval '14 hours',
@@ -180,7 +180,7 @@ insert into wms.labor_activities (
   unit_count, status, started_at, completed_at, created_by, updated_by
 )
 select
-  '10000000-0000-0000-0000-00000000000a',
+  'localhost',
   '20000000-0000-0000-0000-00000000000a',
   u.id, s.role, s.activity_type, s.label, s.unit_count, 'COMPLETED',
   date_trunc('day', now()) - make_interval(days => s.days_ago) + make_interval(hours => s.start_hour),

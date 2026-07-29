@@ -76,3 +76,12 @@ Demo logins (password `Demo1234!` for all): `admin-a@demo.local`,
 `auditor-a@demo.local` (read-only AUDITOR — the only login that reaches
 `/operations/audit-log`, and the only one with no write role anywhere),
 `admin-b@demo.local` (tenant B, for the cross-tenant RLS-isolation demo).
+
+## Multi-tenant demo deployment
+
+For running this as a hosted, multi-tenant training demo — one Supabase
+project shared with ProcessGPT's own, one tenant per trainee, trainees
+reaching `wms-frontend` through a ProcessGPT-side gateway via SSO, then
+connecting `wms-mcp` back in ProcessGPT — see `docs/05-deployment.md`.
+`docker-compose.yml` builds/runs `wms-frontend` + `wms-mcp`;
+`scripts/onboard_trainee.py` provisions one trainee's tenant.

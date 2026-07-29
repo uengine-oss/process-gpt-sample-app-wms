@@ -1,5 +1,13 @@
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
+import { getTenantIdFromHost } from '@/lib/tenant'
+
+function readCookie(name: string): string | undefined {
+  return document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`))
+    ?.split('=')[1]
+}
 
 interface Membership {
   tenant_id: string
@@ -41,15 +49,46 @@ export const useAuthStore = defineStore('auth', {
       this.$reset()
     },
 
+    /**
+     * Resolves a session for this page. wms-frontend shares ProcessGPT's
+     * Supabase project and is reached at `<tenant>.process-gpt.io/wms`
+     * (same origin as ProcessGPT itself, gateway strips the /wms prefix) —
+     * so ProcessGPT's own `access_token`/`refresh_token` cookies (set with
+     * `domain=.process-gpt.io` on login, see process-gpt-vue3's
+     * StorageBaseSupabase.writeUserData) are already visible to this page's
+     * JS. No token handoff route is needed: if this origin doesn't already
+     * have a Supabase session in localStorage (e.g. first visit), read
+     * those cookies and hydrate one, exactly like ProcessGPT's own
+     * StorageBaseSupabase.isConnection() does.
+     */
     async restoreSession() {
-      const { data } = await supabase.auth.getSession()
+      let { data } = await supabase.auth.getSession()
+      if (!data.session) {
+        const accessToken = readCookie('access_token')
+        const refreshToken = readCookie('refresh_token')
+        if (accessToken && refreshToken) {
+          const { data: setData, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (error) return
+          data = setData
+        }
+      }
       if (!data.session) return
       this.userId = data.session.user.id
       this.email = data.session.user.email ?? null
-      await this.loadContext()
+      await this.loadContext(data.session.user.app_metadata?.tenant_id as string | undefined)
     },
 
-    async loadContext() {
+    /**
+     * tenant_id resolution order mirrors process-gpt-vue3's src/utils/tenant.js:
+     * (1) subdomain parsed from the URL — the same value ProcessGPT's gateway
+     * validated against the JWT before routing here, (2) the JWT's own
+     * app_metadata.tenant_id claim, (3) the first membership. Never a hardcoded
+     * fallback — an unrecognized/unlisted tenant just shows no memberships.
+     */
+    async loadContext(jwtTenantId?: string) {
       const { data: memberships, error } = await supabase
         .from('memberships')
         .select('tenant_id, role, tenants(name)')
@@ -61,7 +100,14 @@ export const useAuthStore = defineStore('auth', {
         tenant_name: m.tenants?.name ?? m.tenant_id,
       }))
 
-      if (this.memberships.length > 0) {
+      const hostTenantId = getTenantIdFromHost()
+      const preferred = [hostTenantId, jwtTenantId].find((id) =>
+        id && this.memberships.some((m) => m.tenant_id === id),
+      )
+
+      if (preferred) {
+        await this.setTenant(preferred)
+      } else if (this.memberships.length > 0) {
         this.currentTenantId = this.memberships[0].tenant_id
         await this.loadWarehouses()
       }
