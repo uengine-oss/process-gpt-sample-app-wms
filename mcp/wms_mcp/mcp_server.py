@@ -333,7 +333,6 @@ async def putaway(
 # ============================================================
 
 
-@mcp.tool
 async def register_equipment(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -370,7 +369,6 @@ async def register_equipment(
         return _error_result(exc)
 
 
-@mcp.tool
 async def dispatch_equipment_command(
     equipment_id: Annotated[str, Field(description="설비 UUID (register_equipment/get_equipment_status가 반환)")],
     command_type: Annotated[str, Field(description="명령 유형: MOVE, LOAD, UNLOAD, START, STOP, RESET, HOLD, RESUME 중 하나. SORTER/CONVEYOR 설비에는 DIVERT, SET_SPEED도 가능(wms_wcs-sortation-logic — payload 규격은 get_sortation_profile 참고). ROBOT_CELL 설비에는 PALLETIZE, WRAP도 가능(wms_wcs-sequential-dispatch — PALLETIZE는 dispatch_palletize_command를 쓰는 편이 낫고, WRAP payload 규격은 dispatch_palletize_command 설명 참고)")],
@@ -424,7 +422,6 @@ async def dispatch_equipment_command(
         return _error_result(exc)
 
 
-@mcp.tool
 async def report_command_result(
     command_id: Annotated[str, Field(description="명령 UUID (dispatch_equipment_command가 반환한 document_id)")],
     command_status: Annotated[str, Field(description="보고할 명령 상태: ACKNOWLEDGED, IN_PROGRESS, COMPLETED, FAILED 중 하나")],
@@ -461,7 +458,6 @@ async def report_command_result(
         return _error_result(exc)
 
 
-@mcp.tool
 async def report_equipment_status(
     equipment_id: Annotated[str, Field(description="설비 UUID")],
     new_status: Annotated[str, Field(description="새 설비 상태: OFFLINE, IDLE, RUNNING, MAINTENANCE 중 하나")],
@@ -492,7 +488,6 @@ async def report_equipment_status(
         return _error_result(exc)
 
 
-@mcp.tool
 async def raise_equipment_fault(
     equipment_id: Annotated[str, Field(description="설비 UUID")],
     fault_code: Annotated[str, Field(description="장애 코드 (예: MOTOR_OVERHEAT)")],
@@ -528,7 +523,6 @@ async def raise_equipment_fault(
         return _error_result(exc)
 
 
-@mcp.tool
 async def resolve_equipment_fault(
     fault_id: Annotated[str, Field(description="장애 UUID (raise_equipment_fault가 반환한 document_id)")],
     resolution_note: Annotated[str, Field(description="해소 사유 (필수, 빈 값이면 INVALID)")],
@@ -563,7 +557,6 @@ async def resolve_equipment_fault(
         return _error_result(exc)
 
 
-@mcp.tool
 async def cancel_equipment_command(
     command_id: Annotated[str, Field(description="명령 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 명령(command)의 현재 version")],
@@ -597,7 +590,6 @@ async def cancel_equipment_command(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_equipment_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -641,7 +633,6 @@ async def get_equipment_status(
 # ============================================================
 
 
-@mcp.tool
 async def open_dispatch_wave(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -674,7 +665,6 @@ async def open_dispatch_wave(
         return _error_result(exc)
 
 
-@mcp.tool
 async def create_work_order(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -733,7 +723,6 @@ async def create_work_order(
         return _error_result(exc)
 
 
-@mcp.tool
 async def release_dispatch_wave(
     wave_id: Annotated[str, Field(description="웨이브 UUID (open_dispatch_wave가 반환한 document_id)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 웨이브(wave)의 현재 version")],
@@ -768,7 +757,6 @@ async def release_dispatch_wave(
         return _error_result(exc)
 
 
-@mcp.tool
 async def retry_work_order_dispatch(
     work_order_id: Annotated[str, Field(description="업무 오더 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 업무 오더(work order)의 현재 version")],
@@ -801,7 +789,6 @@ async def retry_work_order_dispatch(
         return _error_result(exc)
 
 
-@mcp.tool
 async def cancel_work_order(
     work_order_id: Annotated[str, Field(description="업무 오더 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 업무 오더(work order)의 현재 version")],
@@ -831,7 +818,6 @@ async def cancel_work_order(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_work_order_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -874,7 +860,6 @@ async def get_work_order_status(
 # ============================================================
 
 
-@mcp.tool
 async def create_sortation_profile(
     equipment_id: Annotated[str, Field(description="설비 UUID (equipment_type이 SORTER 또는 CONVEYOR여야 함)")],
     min_carton_gap_mm: Annotated[int, Field(description="카톤 간 최소 간격(mm), 0보다 커야 함")],
@@ -927,7 +912,6 @@ async def create_sortation_profile(
         return _error_result(exc)
 
 
-@mcp.tool
 async def update_sortation_profile(
     profile_id: Annotated[str, Field(description="프로파일 UUID (create/get_sortation_profile이 반환)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 프로파일(profile)의 현재 version")],
@@ -978,7 +962,6 @@ async def update_sortation_profile(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_sortation_profile(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1038,7 +1021,6 @@ async def get_sortation_profile(
 # ============================================================
 
 
-@mcp.tool
 async def register_wcs_routing_policy(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1088,7 +1070,6 @@ async def register_wcs_routing_policy(
         return _error_result(exc)
 
 
-@mcp.tool
 async def update_wcs_routing_policy(
     policy_id: Annotated[str, Field(description="정책 UUID (register/get_equipment_routing_status가 반환)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 정책(policy)의 현재 version")],
@@ -1135,7 +1116,6 @@ async def update_wcs_routing_policy(
         return _error_result(exc)
 
 
-@mcp.tool
 async def exclude_equipment_from_routing(
     equipment_id: Annotated[str, Field(description="자동 라우팅에서 제외할 설비 UUID")],
     reason: Annotated[str, Field(description="제외 사유 (필수, 예: '계획 정비'). 빈 문자열은 거부된다")],
@@ -1183,7 +1163,6 @@ async def exclude_equipment_from_routing(
         return _error_result(exc)
 
 
-@mcp.tool
 async def clear_equipment_routing_exclusion(
     override_id: Annotated[str, Field(description="제외 레코드 UUID (exclude/get_equipment_routing_status가 반환)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 제외 레코드(override)의 현재 version")],
@@ -1225,7 +1204,6 @@ async def clear_equipment_routing_exclusion(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_equipment_routing_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1292,7 +1270,6 @@ async def get_equipment_routing_status(
 # ============================================================
 
 
-@mcp.tool
 async def create_outbound_order(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1358,7 +1335,6 @@ async def create_outbound_order(
         return _error_result(exc)
 
 
-@mcp.tool
 async def assign_dispatch_sequence(
     outbound_order_id: Annotated[str, Field(description="출고 단위 UUID (create_outbound_order가 반환)")],
     wave_id: Annotated[str, Field(description="디스패치 웨이브 UUID. OPEN 상태여야 한다 (open_dispatch_wave 참고)")],
@@ -1421,7 +1397,6 @@ async def assign_dispatch_sequence(
         return _error_result(exc)
 
 
-@mcp.tool
 async def cancel_dispatch_sequence(
     dispatch_sequence_id: Annotated[str, Field(description="서열 배정 UUID (assign_dispatch_sequence가 반환)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — **서열 배정**(dispatch sequence)의 현재 version")],
@@ -1473,7 +1448,6 @@ async def cancel_dispatch_sequence(
         return _error_result(exc)
 
 
-@mcp.tool
 async def dispatch_palletize_command(
     equipment_id: Annotated[str, Field(description="대상 ROBOT_CELL 설비 UUID. 자동 선택하지 않는다 — 호출자가 명시해야 한다")],
     wave_id: Annotated[str, Field(description="디스패치 웨이브 UUID")],
@@ -1567,7 +1541,6 @@ async def dispatch_palletize_command(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_dispatch_sequence_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1601,7 +1574,6 @@ async def get_dispatch_sequence_status(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_pallet_manifest(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1665,7 +1637,6 @@ async def get_pallet_manifest(
 # ============================================================
 
 
-@mcp.tool
 async def set_equipment_simulation_mode(
     equipment_id: Annotated[str, Field(description="설비 UUID")],
     is_simulated: Annotated[bool, Field(description="true면 이 설비의 명령을 소프트웨어 시뮬레이터가 자동 이행한다")],
@@ -1707,7 +1678,6 @@ async def set_equipment_simulation_mode(
         return _error_result(exc)
 
 
-@mcp.tool
 async def register_simulation_profile(
     equipment_id: Annotated[str, Field(description="설비 UUID. is_simulated=true여야 한다")],
     ack_delay_ms_min: Annotated[int, Field(description="PENDING→ACKNOWLEDGED 지연 최소값(ms)")],
@@ -1761,7 +1731,6 @@ async def register_simulation_profile(
         return _error_result(exc)
 
 
-@mcp.tool
 async def update_simulation_profile(
     profile_id: Annotated[str, Field(description="시뮬레이션 프로파일 UUID (get_simulation_profile이 반환)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 — 프로파일의 현재 version")],
@@ -1812,7 +1781,6 @@ async def update_simulation_profile(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_simulation_profile(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1841,7 +1809,6 @@ async def get_simulation_profile(
         return _error_result(exc)
 
 
-@mcp.tool
 async def plan_simulated_command(
     command_id: Annotated[str, Field(description="설비 명령 UUID. 그 설비가 is_simulated=true여야 한다")],
     correlation_id: Annotated[Optional[str], Field(description="ProcessGPT process_instance_id 등 상관관계 ID")] = None,
@@ -1886,7 +1853,6 @@ async def plan_simulated_command(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_due_simulation_actions(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1913,7 +1879,6 @@ async def get_due_simulation_actions(
         return _error_result(exc)
 
 
-@mcp.tool
 async def advance_simulated_command(
     command_id: Annotated[str, Field(description="설비 명령 UUID. 계획이 있고 도래해 있어야 한다")],
     correlation_id: Annotated[Optional[str], Field(description="ProcessGPT process_instance_id 등 상관관계 ID")] = None,
@@ -1958,7 +1923,6 @@ async def advance_simulated_command(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_simulation_schedule_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -1985,7 +1949,6 @@ async def get_simulation_schedule_status(
         return _error_result(exc)
 
 
-@mcp.tool
 async def create_simulation_scenario(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2039,7 +2002,6 @@ async def create_simulation_scenario(
         return _error_result(exc)
 
 
-@mcp.tool
 async def run_simulation_scenario(
     scenario_id: Annotated[str, Field(description="시나리오 UUID")],
     correlation_id: Annotated[Optional[str], Field(description="ProcessGPT process_instance_id 등 상관관계 ID")] = None,
@@ -2091,7 +2053,6 @@ async def run_simulation_scenario(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_simulation_scenario_status(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2140,7 +2101,6 @@ async def get_simulation_scenario_status(
 # ============================================================
 
 
-@mcp.tool
 async def register_dock(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2176,7 +2136,6 @@ async def register_dock(
         return _error_result(exc)
 
 
-@mcp.tool
 async def set_dock_status(
     dock_id: Annotated[str, Field(description="도크 UUID")],
     new_status: Annotated[str, Field(description="AVAILABLE 또는 CLOSED. OCCUPIED는 지정할 수 없다")],
@@ -2216,7 +2175,6 @@ async def set_dock_status(
         return _error_result(exc)
 
 
-@mcp.tool
 async def schedule_dock_appointment(
     dock_id: Annotated[str, Field(description="예약할 도크 UUID")],
     scheduled_start: Annotated[str, Field(description="예약 시작 시각 (ISO 8601, 예: 2026-08-01T09:00:00Z)")],
@@ -2277,7 +2235,6 @@ async def schedule_dock_appointment(
         return _error_result(exc)
 
 
-@mcp.tool
 async def cancel_dock_appointment(
     appointment_id: Annotated[str, Field(description="도크 예약 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전 — get_dock_schedule로 얻은 예약 version")],
@@ -2313,7 +2270,6 @@ async def cancel_dock_appointment(
         return _error_result(exc)
 
 
-@mcp.tool
 async def check_in_vehicle(
     appointment_id: Annotated[str, Field(description="도크 예약 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전")],
@@ -2356,7 +2312,6 @@ async def check_in_vehicle(
         return _error_result(exc)
 
 
-@mcp.tool
 async def dock_vehicle(
     appointment_id: Annotated[str, Field(description="도크 예약 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전")],
@@ -2397,7 +2352,6 @@ async def dock_vehicle(
         return _error_result(exc)
 
 
-@mcp.tool
 async def depart_vehicle(
     appointment_id: Annotated[str, Field(description="도크 예약 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전")],
@@ -2435,7 +2389,6 @@ async def depart_vehicle(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_dock_schedule(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2501,7 +2454,6 @@ async def get_dock_schedule(
 # ============================================================
 
 
-@mcp.tool
 async def start_labor_activity(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2560,7 +2512,6 @@ async def start_labor_activity(
         return _error_result(exc)
 
 
-@mcp.tool
 async def complete_labor_activity(
     activity_id: Annotated[str, Field(description="인력 활동 UUID (start_labor_activity가 반환한 document_id)")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전 — 시작 직후에는 1")],
@@ -2610,7 +2561,6 @@ async def complete_labor_activity(
         return _error_result(exc)
 
 
-@mcp.tool
 async def cancel_labor_activity(
     activity_id: Annotated[str, Field(description="인력 활동 UUID")],
     expected_version: Annotated[int, Field(description="낙관적 동시성 버전")],
@@ -2649,7 +2599,6 @@ async def cancel_labor_activity(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_labor_productivity(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2687,7 +2636,6 @@ async def get_labor_productivity(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_labor_leaderboard(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2719,7 +2667,6 @@ async def get_labor_leaderboard(
         return _error_result(exc)
 
 
-@mcp.tool
 async def forecast_labor_demand(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2761,7 +2708,6 @@ async def forecast_labor_demand(
         return _error_result(exc)
 
 
-@mcp.tool
 async def receive_with_labor_tracking(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2878,7 +2824,6 @@ async def receive_with_labor_tracking(
 # ============================================================
 
 
-@mcp.tool
 async def register_storage_location(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -2932,7 +2877,6 @@ async def register_storage_location(
         return _error_result(exc)
 
 
-@mcp.tool
 async def set_storage_location_status(
     location_id: Annotated[str, Field(description="보관 위치 UUID")],
     status: Annotated[str, Field(description="ACTIVE 또는 INACTIVE")],
@@ -2974,7 +2918,6 @@ async def set_storage_location_status(
         return _error_result(exc)
 
 
-@mcp.tool
 async def assign_sku_location(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3021,7 +2964,6 @@ async def assign_sku_location(
         return _error_result(exc)
 
 
-@mcp.tool
 async def reassign_sku_location(
     assignment_id: Annotated[str, Field(description="SKU-위치 배정 UUID")],
     location_id: Annotated[str, Field(description="옮겨 갈 보관 위치 UUID. ACTIVE 상태여야 한다")],
@@ -3065,7 +3007,6 @@ async def reassign_sku_location(
         return _error_result(exc)
 
 
-@mcp.tool
 async def register_slotting_class_policy(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3114,7 +3055,6 @@ async def register_slotting_class_policy(
         return _error_result(exc)
 
 
-@mcp.tool
 async def update_slotting_class_policy(
     policy_id: Annotated[str, Field(description="등급 정책 UUID")],
     max_accessibility_rank: Annotated[int, Field(description="새 접근성 순위 상한. 양의 정수")],
@@ -3157,7 +3097,6 @@ async def update_slotting_class_policy(
         return _error_result(exc)
 
 
-@mcp.tool
 async def compute_sku_velocity(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3219,7 +3158,6 @@ async def compute_sku_velocity(
         return _error_result(exc)
 
 
-@mcp.tool
 async def generate_slotting_recommendations(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3283,7 +3221,6 @@ async def generate_slotting_recommendations(
         return _error_result(exc)
 
 
-@mcp.tool
 async def review_slotting_recommendation(
     recommendation_id: Annotated[str, Field(description="재배치 추천 UUID")],
     decision: Annotated[str, Field(description="APPROVE 또는 REJECT")],
@@ -3333,7 +3270,6 @@ async def review_slotting_recommendation(
         return _error_result(exc)
 
 
-@mcp.tool
 async def apply_slotting_recommendation(
     recommendation_id: Annotated[str, Field(description="APPROVED 상태의 재배치 추천 UUID")],
     expected_version: Annotated[int, Field(description="추천의 낙관적 동시성 버전")],
@@ -3395,7 +3331,6 @@ async def apply_slotting_recommendation(
 # ============================================================
 
 
-@mcp.tool
 async def get_labor_balance_signals(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3448,7 +3383,6 @@ async def get_labor_balance_signals(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_dispatch_delay_signals(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3504,7 +3438,6 @@ async def get_dispatch_delay_signals(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_worker_next_actions(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3544,7 +3477,6 @@ async def get_worker_next_actions(
         return _error_result(exc)
 
 
-@mcp.tool
 async def get_agent_decisions(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3581,7 +3513,6 @@ async def get_agent_decisions(
         return _error_result(exc)
 
 
-@mcp.tool
 async def log_agent_decision(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3638,7 +3569,6 @@ async def log_agent_decision(
         return _error_result(exc)
 
 
-@mcp.tool
 async def propose_agent_action(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
@@ -3706,7 +3636,6 @@ async def propose_agent_action(
         return _error_result(exc)
 
 
-@mcp.tool
 async def confirm_agent_proposal(
     decision_id: Annotated[str, Field(description="에이전트 제안 UUID")],
     expected_version: Annotated[int, Field(description="제안의 낙관적 동시성 버전")],
@@ -3752,7 +3681,6 @@ async def confirm_agent_proposal(
         return _error_result(exc)
 
 
-@mcp.tool
 async def reject_agent_proposal(
     decision_id: Annotated[str, Field(description="에이전트 제안 UUID")],
     reason: Annotated[str, Field(description="반려 사유. 필수 — 빈 문자열이면 INVALID")],
@@ -3811,7 +3739,6 @@ async def reject_agent_proposal(
 # ============================================================
 
 
-@mcp.tool
 async def query_audit_log(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     date_from: Annotated[Optional[str], Field(description="조회 시작 시각 (ISO 8601). 생략하면 처음부터")] = None,
@@ -3864,7 +3791,6 @@ async def query_audit_log(
         return _error_result(exc)
 
 
-@mcp.tool
 async def export_audit_log(
     tenant_id: Annotated[str, Field(description="테넌트 UUID")],
     date_from: Annotated[Optional[str], Field(description="내보내기 시작 시각 (ISO 8601)")] = None,
