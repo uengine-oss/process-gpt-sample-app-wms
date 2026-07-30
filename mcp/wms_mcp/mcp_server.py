@@ -133,6 +133,19 @@ async def list_warehouse_stock(
 
 
 @mcp.tool
+async def list_suppliers(
+    tenant_id: Annotated[str, Field(description="테넌트 ID (ProcessGPT tenant_id)")],
+    query: Annotated[Optional[str], Field(description="공급사명/이메일 부분 검색어 (선택, 미지정 시 전체 목록)")] = None,
+) -> dict:
+    """공급사 목록을 조회한다 (읽기 전용). create_rfq에 넘길 supplier_id를 찾을 때 사용한다."""
+    try:
+        data = _call_rpc("wms_list_suppliers", {"p_tenant_id": tenant_id, "p_query": query})
+        return {"result": "ok", "document": data}
+    except WmsCommandError as exc:
+        return _error_result(exc)
+
+
+@mcp.tool
 async def create_rfq(
     tenant_id: Annotated[str, Field(description="테넌트 ID (ProcessGPT tenant_id)")],
     warehouse_id: Annotated[str, Field(description="창고 UUID")],
