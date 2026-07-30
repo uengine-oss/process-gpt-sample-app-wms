@@ -89,21 +89,42 @@ export const useAuthStore = defineStore('auth', {
      * fallback — an unrecognized/unlisted tenant just shows no memberships.
      */
     async loadContext(jwtTenantId?: string) {
-      const { data: memberships, error } = await supabase
-        .from('memberships')
-        .select('tenant_id, role, tenants(name)')
-      if (error) throw error
+      const fetchMemberships = async () => {
+        const { data, error } = await supabase
+          .from('memberships')
+          .select('tenant_id, role, tenants(name)')
+        if (error) throw error
+        return (data ?? []).map((m: any) => ({
+          tenant_id: m.tenant_id,
+          role: m.role,
+          tenant_name: m.tenants?.name ?? m.tenant_id,
+        }))
+      }
+      const findPreferred = (hostTenantId: string) =>
+        [hostTenantId, jwtTenantId].find((id) =>
+          id && this.memberships.some((m) => m.tenant_id === id),
+        )
 
-      this.memberships = (memberships ?? []).map((m: any) => ({
-        tenant_id: m.tenant_id,
-        role: m.role,
-        tenant_name: m.tenants?.name ?? m.tenant_id,
-      }))
+      this.memberships = await fetchMemberships()
 
       const hostTenantId = getTenantIdFromHost()
-      const preferred = [hostTenantId, jwtTenantId].find((id) =>
-        id && this.memberships.some((m) => m.tenant_id === id),
-      )
+      let preferred = findPreferred(hostTenantId)
+
+      // First visit for this tenant: ProcessGPT SSO already signed the user
+      // in (restoreSession hydrated a session from the .process-gpt.io
+      // cookies), but wms.memberships has no row yet, so RLS hides
+      // everything. Self-provision grants the caller's own tenant_id (read
+      // from their own JWT server-side, not a client-supplied value — see
+      // 20260808_wms_self_service_membership.sql) and retry once. Skipped
+      // entirely on the root process-gpt.io domain, where there is no
+      // tenant to provision for.
+      if (!preferred && (hostTenantId || jwtTenantId)) {
+        const { error: provisionError } = await supabase.rpc('wms_self_provision_membership')
+        if (!provisionError) {
+          this.memberships = await fetchMemberships()
+          preferred = findPreferred(hostTenantId)
+        }
+      }
 
       if (preferred) {
         await this.setTenant(preferred)

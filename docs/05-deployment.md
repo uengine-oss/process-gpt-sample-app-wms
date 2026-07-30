@@ -85,6 +85,29 @@ python3 scripts/onboard_trainee.py \
 뿐이고, wms-frontend나 wms-mcp가 자체적으로 그 판단을 대신하면 위 3장 마지막
 문단의 취약점이 그대로 트레이니 계정에도 열리기 때문이다.
 
+## 4-bis. (대안) 테넌트 전원 자동 온보딩 — 강사 개입 없이
+
+4단계는 "이 테넌트의 진짜 주인이 누구인지 강사만 안다"는 전제의 화이트리스트
+방식이다. 반대로 **테넌트에 속한 ProcessGPT 로그인 전원에게 별도 승인 없이
+WMS_ADMIN을 자동으로 주고 싶다면**(예: 사내 배포처럼 트레이니 화이트리스트
+개념이 없는 경우) `20260808_wms_self_service_membership.sql`의
+`wms.wms_self_provision_membership` RPC를 대신 쓴다.
+
+이 RPC는 `authenticated`에 열려 있지만 4단계와 달리 파라미터로 임의의
+이메일/tenant_id를 받지 않는다 — 호출자 자신의 세션 JWT에서
+`app_metadata.tenant_id`와 `email`을 읽어 **자기 자신**에게만 멤버십을
+부여한다(3장 마지막 문단이 우려하는 "테넌트 ID를 안다고 남에게 권한을 줄 수
+있는" 구멍이 여기서는 성립하지 않는다 — 게이트웨이가 이미 그 claim과
+서브도메인의 일치를 검증했으므로 신뢰할 수 있다, §6 참고). wms-frontend는
+`auth.ts`의 `loadContext()`에서 로그인한 사용자가 현재 서브도메인 테넌트에
+대한 멤버십이 없으면 이 RPC를 자동 호출하고 재조회한다 — 사람이 아무것도
+누르지 않아도 첫 방문에 권한이 생긴다.
+
+4단계와 4-bis는 병행 가능하다(멱등적이라 서로 충돌하지 않는다) — 특정
+계정만 미리 다른 역할(예: `AUDITOR`)로 지정해 두고 싶으면 4단계로 먼저
+심어 두면 되고, `wms.memberships`에 이미 행이 있으면 4-bis는 아무것도
+바꾸지 않는다(`on conflict do nothing`).
+
 ## 5. wms-frontend / wms-mcp 배포
 
 ```bash
