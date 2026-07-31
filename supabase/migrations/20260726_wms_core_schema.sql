@@ -20,7 +20,7 @@ create table wms.tenants (
 
 create table wms.warehouses (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   code text not null,
   name text not null,
   created_at timestamptz not null default now(),
@@ -31,7 +31,7 @@ create table wms.warehouses (
 -- QUALITY_INSPECTOR / AUDITOR / PROCESS_AGENT (design.md §12, subset used here)
 create table wms.memberships (
   user_id uuid not null references auth.users(id) on delete cascade,
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   role text not null,
   created_at timestamptz not null default now(),
   primary key (user_id, tenant_id)
@@ -41,7 +41,7 @@ create table wms.memberships (
 -- their tenant (see wms.current_warehouse_ids below) without a row here.
 create table wms.warehouse_scopes (
   user_id uuid not null,
-  tenant_id uuid not null,
+  tenant_id text not null,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   primary key (user_id, warehouse_id),
   foreign key (user_id, tenant_id) references wms.memberships(user_id, tenant_id) on delete cascade
@@ -53,7 +53,7 @@ create table wms.warehouse_scopes (
 
 create table wms.products (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   sku text not null,
   name text not null,
   uom text not null default 'EA',
@@ -65,7 +65,7 @@ create table wms.products (
 
 create table wms.suppliers (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   name text not null,
   email text,
   created_at timestamptz not null default now()
@@ -78,7 +78,7 @@ create table wms.suppliers (
 
 create table wms.purchase_orders (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   product_id uuid not null references wms.products(id),
   supplier_id uuid references wms.suppliers(id),
@@ -101,7 +101,7 @@ create table wms.purchase_orders (
 
 create table wms.receipts (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   po_id uuid not null references wms.purchase_orders(id) on delete cascade,
   product_id uuid not null references wms.products(id),
@@ -117,7 +117,7 @@ create table wms.receipts (
 
 create table wms.quality_inspections (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   receipt_id uuid not null references wms.receipts(id) on delete cascade,
   product_id uuid not null references wms.products(id),
   result text not null check (result in ('PASSED', 'FAILED')),
@@ -128,7 +128,7 @@ create table wms.quality_inspections (
 
 create table wms.inventory_dispositions (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   receipt_id uuid not null references wms.receipts(id) on delete cascade,
   product_id uuid not null references wms.products(id),
   disposition_type text not null check (disposition_type in ('AVAILABLE', 'SCRAP')),
@@ -144,7 +144,7 @@ create table wms.inventory_dispositions (
 
 create table wms.stock_ledger_entries (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references wms.tenants(id) on delete cascade,
+  tenant_id text not null references wms.tenants(id) on delete cascade,
   warehouse_id uuid not null references wms.warehouses(id) on delete cascade,
   product_id uuid not null references wms.products(id),
   qty_delta numeric not null,
@@ -157,7 +157,7 @@ create table wms.stock_ledger_entries (
 
 create table wms.idempotency_records (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  tenant_id text not null,
   command_name text not null,
   idempotency_key uuid not null,
   response jsonb not null,
@@ -167,7 +167,7 @@ create table wms.idempotency_records (
 
 create table wms.audit_events (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
+  tenant_id text not null,
   actor_id uuid,
   command text not null,
   entity_type text not null,
@@ -206,7 +206,7 @@ as $$
   select tenant_id from wms.memberships where user_id = auth.uid();
 $$;
 
-create or replace function wms.current_warehouse_ids(p_tenant_id uuid)
+create or replace function wms.current_warehouse_ids(p_tenant_id text)
 returns setof uuid
 language sql stable security definer
 set search_path = wms, public
@@ -221,7 +221,7 @@ as $$
   where w.tenant_id = p_tenant_id and m.role = 'WMS_ADMIN';
 $$;
 
-create or replace function wms.has_role(p_tenant_id uuid, variadic p_roles text[])
+create or replace function wms.has_role(p_tenant_id text, variadic p_roles text[])
 returns boolean
 language sql stable security definer
 set search_path = wms, public
@@ -304,7 +304,7 @@ grant select on wms.inventory_availability_v to authenticated;
 -- ============================================================
 
 create or replace function wms.wms_check_stock(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_sku text
 ) returns jsonb
@@ -345,7 +345,7 @@ end;
 $$;
 
 create or replace function wms.wms_create_rfq(
-  p_tenant_id uuid,
+  p_tenant_id text,
   p_warehouse_id uuid,
   p_sku text,
   p_qty numeric,
@@ -458,7 +458,7 @@ declare
   v_cached jsonb;
   v_po wms.purchase_orders%rowtype;
   v_receipt wms.receipts%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.purchase_orders where id = p_po_id;
   if p_idempotency_key is not null then
@@ -514,7 +514,7 @@ as $$
 declare
   v_cached jsonb;
   v_receipt wms.receipts%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.receipts where po_id = p_po_id;
   if p_idempotency_key is not null then
@@ -564,7 +564,7 @@ as $$
 declare
   v_cached jsonb;
   v_receipt wms.receipts%rowtype;
-  v_tenant_id uuid;
+  v_tenant_id text;
 begin
   select tenant_id into v_tenant_id from wms.receipts where id = p_receipt_id;
   if p_idempotency_key is not null then
